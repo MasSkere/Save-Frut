@@ -38,8 +38,12 @@ public class JwtTokenProvider {
 
     // 2. Tiempo de Expiración: Cuánto dura el "pase VIP".
     // También la ponemos en 'application.properties'.
-    @Value("${app.jwt.expiration-ms}")
-    private int jwtExpirationMs;
+    @Value("${app.jwt.expiration-minutes}")
+    private int jwtExpirationMinutes;
+
+    // 3. Tiempo de Expiración para Refresh Token
+    @Value("${app.jwt.refresh.expiration-days}")
+    private int jwtRefreshExpirationDays;
 
     /**
      * Genera un nuevo token JWT para un usuario que se ha autenticado exitosamente.
@@ -56,7 +60,7 @@ public class JwtTokenProvider {
                 .collect(Collectors.joining(","));
 
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
+        Date expiryDate = new Date(now.getTime() + jwtExpirationMinutes * 60 * 1000);
 
         return Jwts.builder()
                 // "Subject" (Asunto): El email del usuario
@@ -111,6 +115,56 @@ public class JwtTokenProvider {
             logger.error("Validación de JWT falló: {}", e.getMessage());
         }
         return false;
+    }
+
+    /**
+     * Genera un refresh token (más simple, solo userId y expiración larga).
+     * @param userId El ID del usuario.
+     * @return Un String que es el Refresh Token JWT.
+     */
+    public String generateRefreshToken(Long userId) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + (long) jwtRefreshExpirationDays * 24 * 60 * 60 * 1000);
+
+        return Jwts.builder()
+                .subject(String.valueOf(userId)) // Solo el userId como subject
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(getSignInKey())
+                .compact();
+    }
+
+    /**
+     * Extrae el userId del refresh token.
+     * @param refreshToken El refresh token.
+     * @return El userId del usuario.
+     */
+    public Long getUserIdFromRefreshToken(String refreshToken) {
+        Claims claims = Jwts.parser()
+                .verifyWith(getSignInKey())
+                .build()
+                .parseSignedClaims(refreshToken)
+                .getPayload();
+
+        return Long.valueOf(claims.getSubject());
+    }
+
+    /**
+     * Valida si un refresh token es válido.
+     * @param refreshToken El refresh token.
+     * @return true si es válido, false si no.
+     */
+    public boolean validateRefreshToken(String refreshToken) {
+        try {
+            Jwts.parser()
+                    .verifyWith(getSignInKey())
+                    .build()
+                    .parseSignedClaims(refreshToken);
+            return true;
+        } catch (Exception e) {
+            logger.error("Refresh token inválido: {}", e.getMessage());
+            return false;
+        }
     }
 
     /**

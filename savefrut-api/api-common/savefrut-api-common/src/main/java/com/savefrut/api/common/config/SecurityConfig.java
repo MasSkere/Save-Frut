@@ -1,9 +1,9 @@
-package com.savefrut.api.config;
+package com.savefrut.api.common.config;
 
 
-import com.savefrut.api.security.JwtAuthEntryPoint;
-import com.savefrut.api.security.jwt.JwtTokenFilter;
-import com.savefrut.api.security.service.UserDetailsServiceImpl;
+import com.savefrut.api.common.security.JwtAuthEntryPoint;
+import com.savefrut.api.common.security.jwt.JwtTokenFilter;
+import com.savefrut.api.common.security.service.UserDetailsServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
