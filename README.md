@@ -78,13 +78,14 @@ savefrut-v2/
 - ✅ Carrito multi-vendedor con tarifa de variedad
 - ✅ Envío a domicilio + recojo en tienda
 - ✅ Pago con Mercado Pago
-- ✅ Autenticación JWT con refresh tokens
+- ✅ Autenticación JWT con refresh tokens (30 min access, 7 días refresh)
+- ✅ Refresh tokens seguros en httpOnly cookies
 - ✅ API modular y escalable
 
 ## Roadmap
 
-- [ ] Variables de entorno completas
-- [ ] JWT mejorado (30 min access, 7 días refresh)
+- [x] Variables de entorno completas
+- [x] JWT mejorado (30 min access, 7 días refresh)
 - [ ] Mercado Pago integración
 - [ ] Envíos dinámicos por zona
 - [ ] Descuentos por cantidad
