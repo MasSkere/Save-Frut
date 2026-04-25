@@ -1,0 +1,10 @@
+/*
+  Por ahora, Tailwind CSS se encarga de casi todo.
+  Podemos usar este archivo si necesitamos algún estilo personalizado
+  que sea difícil de hacer con Tailwind.
+*/
+
+/* Escondemos el spinner por defecto (Tailwind 'hidden' a veces tarda en cargar) */
+#loading-spinner {
+    display: none;
+}

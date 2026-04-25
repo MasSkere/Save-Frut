@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Savefrut - Frutas Próximas a Vencer</title>
+    <!-- Incluimos Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Incluimos nuestros estilos personalizados (si los hay) -->
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Iconos de Carrito y Búsqueda (Feather Icons) -->
+    <script src="https://unpkg.com/feather-icons"></script>
+</head>
+<body class="bg-white font-sans">
+
+    <!-- Header -->
+	<header class="container mx-auto px-4 py-5 flex justify-between items-center border-b">
+	    <a href="index.html" class="text-2xl font-bold text-green-600">Savefrut</a>
+	    
+	    <div class="flex items-center space-x-5">
+	        
+	        <div class="relative">
+	            <input type="search" id="search-input" 
+	                   placeholder="Buscar frutas..."
+	                   class="border border-gray-300 rounded-full py-2 px-4 pl-10 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+	            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+	                <i data-feather="search" class="w-5 h-5"></i>
+	            </span>
+	            <div id="search-results" class="absolute z-10 w-full bg-white border rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto hidden">
+	                </div>
+	        </div>
+	        <a href="carrito.html" class="text-gray-600 hover:text-green-600 relative">
+	            <i data-feather="shopping-cart" class="w-5 h-5"></i>
+	            <span id="carrito-contador" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">0</span>
+	        </a>
+	        
+	        </div>
+			
+			<div class="flex items-center space-x-3">
+			    <a href="login.html" id="nav-profile-button" 
+			       class="bg-green-600 text-white px-5 py-2 rounded-full text-sm font-medium hover:bg-green-700 transition-colors">
+			        Mi Perfil
+			    </a>
+			    
+			    <button id="logout-button" class="text-sm text-gray-500 hover:text-red-600 hidden">
+			        (Cerrar Sesión)
+			    </button>
+			</div>
+			
+			
+			
+			
+	</header>
+
+    <!-- Contenido Principal -->
+    <main class="container mx-auto mt-8 px-4">
+
+        <!-- Sección de Categorías -->
+        <section>
+            <h2 class="text-2xl font-semibold text-gray-800 mb-1">Categorías de Frutas</h2>
+            <p class="text-gray-500 mb-4">Encuentra tus favoritas y descubre nuevos sabores.</p>
+            
+            <!-- Contenedor para las categorías (JS lo llenará) -->
+            <div id="categorias-container" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <!-- Ejemplo de cómo se verá (JS creará esto) -->
+                <!-- 
+                <div class="bg-gray-100 rounded-lg p-4 flex flex-col items-center justify-center hover:bg-gray-200 transition-colors">
+                    <span class="text-3xl">🍋</span>
+                    <span class="mt-2 font-medium text-gray-700">Ácidas</span>
+                </div>
+                -->
+            </div>
+        </section>
+
+        <!-- Sección de Productos Próximos a Vencer -->
+        <section class="mt-12">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-semibold text-gray-800">Frutas Próximas a Vencer</h2>
+                <a href="#" class="text-green-600 font-medium hover:underline">Ver más</a>
+            </div>
+            
+            <!-- Contenedor para los productos (JS lo llenará) -->
+            <div id="productos-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Aquí se mostrará el mensaje de "Cargando..." o "Error" -->
+            </div>
+        </section>
+
+        <!-- Sección de Tiendas -->
+        <section class="mt-12 bg-gray-50 rounded-lg p-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-2 text-center">Nuestras Tiendas</h2>
+            <p class="text-center text-gray-600 mb-6">Encuentra tu punto de venta Savefrut más cercano.</p>
+            
+            <!-- Contenedor para las tiendas (JS lo llenará) -->
+            <div id="tiendas-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Aquí se mostrará el mensaje de "Cargando..." o "Error" -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center text-gray-500 text-sm mt-12 py-6 border-t">
+        <div class="container mx-auto space-x-4">
+            <a href="#" class="hover:text-black">Sobre Nosotros</a>
+            <a href="#" class="hover:text-black">Contacto</a>
+            <a href="#" class="hover:text-black">Términos y Condiciones</a>
+        </div>
+        <p class="mt-4">© 2025 Savefrut. Todos los derechos reservados.</p>
+    </footer>
+
+    <!-- Script de JavaScript (¡El más importante!) -->
+    <script src="js/app.js"></script>
+    
+    <!-- Script para activar los iconos -->
+    <script>
+      feather.replace();
+    </script>
+</body>
+</html>

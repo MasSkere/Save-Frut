@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Método de Envío - Savefrut</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+    
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAolwbs8AWBoUeynPJzmUfqr9TEbvpToE0&libraries=places,geocoding&callback=initMap" 
+            async defer></script>
+
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { 'sans': ['Inter', 'sans-serif'] } } } }
+    </script>
+    <style>
+       #mapa-recojo, #mapa-domicilio { 
+           height: 200px; width: 100%; border-radius: 8px; 
+           margin-top: 1rem; background-color: #e5e7eb; 
+       }
+   </style>
+</head>
+<body class="bg-gray-100 font-sans">
+
+    <header class="container mx-auto px-4 py-5 flex justify-between items-center bg-white border-b">
+        <a href="index.html" class="text-2xl font-bold text-green-600">Savefrut</a>
+        <div class="flex items-center space-x-2 text-sm text-gray-500">
+            <a href="carrito.html" class="hover:text-green-600">Carrito</a>
+            <i data-feather="chevron-right" class="w-4 h-4"></i>
+            <span class="font-semibold text-green-600">Envío</span>
+            <i data-feather="chevron-right" class="w-4 h-4"></i>
+            <span>Pago</span>
+        </div>
+    </header>
+
+    <main class="container mx-auto mt-8 px-4 grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        
+        <div class="lg:col-span-2 space-y-6">
+            <h1 class="text-3xl font-bold text-gray-800">Elige tu método de envío</h1>
+
+            <div id="multi-store-warning" class="hidden bg-orange-100 border border-orange-300 text-orange-700 px-4 py-3 rounded-lg">
+                <p><span class="font-bold">¡Aviso Importante!</span> Tu carrito contiene productos de diferentes tiendas. Por esta razón, solo está disponible la "Entrega a Domicilio".</p>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md border border-gray-200">
+                <div class="p-4 flex items-center border-b">
+                    <input id="radio-domicilio" type="radio" name="envio" class="h-4 w-4 text-green-600 border-gray-300" checked>
+                    <label for="radio-domicilio" class="ml-3 flex-grow">
+                        <span class="block text-lg font-semibold text-gray-800">Entrega a Domicilio</span>
+                        <span class="block text-sm text-gray-500">Recíbelo en la comodidad de tu hogar (plazo de 24 horas).</span>
+                    </label>
+                    <span class="text-lg font-semibold text-gray-800" id="costo-domicilio">S/ 10.00</span>
+                </div>
+                
+                <div id="form-domicilio" class="p-6">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="col-span-2">
+                            <label for="direccion-input" class="block text-sm font-medium text-gray-700">Dirección</label>
+                            <input type="text" id="direccion-input" class="mt-1 p-2 w-full border border-gray-300 rounded-md" 
+                                   placeholder="Escribe tu dirección aquí">
+                        </div>
+                        <div>
+                            <label for="provincia-select" class="block text-sm font-medium text-gray-700">Provincia</label>
+                            <select id="provincia-select" class="mt-1 p-2 w-full border border-gray-300 rounded-md">
+                                <option>Cargando...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="distrito-select" class="block text-sm font-medium text-gray-700">Distrito</label>
+                            <select id="distrito-select" class="mt-1 p-2 w-full border border-gray-300 rounded-md" disabled>
+                                <option>Selecciona una provincia</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <p class="text-sm text-gray-500 mt-4">
+                        O, si prefieres, ubica tu dirección en el mapa:
+                    </p>
+                    <div id="mapa-domicilio"></div> 
+                    <button id="confirmar-direccion-btn" class="hidden w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors mt-4">
+                        Confirmar Ubicación del Pin
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md border border-gray-200">
+                <div class="p-4 flex items-center border-b">
+                    <input id="radio-recojo" type="radio" name="envio" class="h-4 w-4 text-green-600 border-gray-300">
+                    <label for="radio-recojo" class="ml-3 flex-grow">
+                        <span class="block text-lg font-semibold text-gray-800">Punto de Recogida</span>
+                        <span class="block text-sm text-gray-500">Recoge tu pedido 20 minutos después de confirmar el pago.</span>
+                    </label>
+                    <span class="text-lg font-semibold text-green-600" id="costo-recojo">Gratis</span>
+                </div>
+                <div id="info-recojo" class="p-6 hidden">
+                    <div id="recojo-multiple-tiendas" class="hidden text-red-500 text-sm p-4 bg-red-50 rounded-lg">
+                        El recojo en tienda no está disponible porque tu pedido incluye productos de múltiples vendedores.
+                    </div>
+                    <div id="recojo-tienda-unica">
+                        <h3 class="font-semibold text-gray-700" id="recojo-tienda-nombre"></h3>
+                        <p class="text-sm text-gray-500" id="recojo-tienda-direccion"></p>
+                        <p class="text-sm text-orange-500" id="recojo-tienda-horario"></p>
+                        <div id="mapa-recojo"></div> 
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-1 h-fit bg-white rounded-lg shadow-md border p-6 sticky top-8">
+            <h2 class="text-2xl font-bold text-gray-800 border-b pb-4 mb-4">Resumen del Pedido</h2>
+            <div class="space-y-3 text-gray-700">
+                <div class="flex justify-between">
+                    <span>Subtotal</span>
+                    <span id="summary-subtotal" class="font-medium">S/ 0.00</span>
+                </div>
+                <div id="variety-fee-row" class="hidden flex justify-between">
+                    <span class="text-orange-600">Tarifa por Variedad</span>
+                    <span id="summary-variety-fee" class="font-medium text-orange-600">S/ 5.00</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Envío</span>
+                    <span id="summary-shipping" class="font-medium">S/ 10.00</span>
+                </div>
+                <div class="border-t pt-4 mt-4 flex justify-between text-xl font-bold text-gray-900">
+                    <span>Total</span>
+                    <span id="summary-total">S/ 0.00</span>
+                </div>
+            </div>
+            <button id="payment-button" class="w-full bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700 transition-colors mt-6">
+                Ir a Pagar
+            </button>
+        </div>
+    </main>
+
+    <script src="js/services/cart-service.js"></script>
+    <script src="js/services/map-service.js"></script>
+    
+    <script src="js/envio.js"></script>
+    
+    <script>
+      feather.replace();
+    </script>
+</body>
+</html>

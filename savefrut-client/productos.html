@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Productos - Savefrut</title>
+    <!-- Incluimos Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://unpkg.com/feather-icons"></script>
+</head>
+<body class="bg-gray-50">
+
+    <!-- Header (copiado de index.html) -->
+    <header class="container mx-auto px-4 py-5 flex justify-between items-center border-b bg-white">
+        <a href="index.html" class="text-2xl font-bold text-green-600">Savefrut</a>
+        <div class="flex items-center space-x-5">
+            <a href="#" class="text-gray-600 hover:text-green-600"><i data-feather="search" class="w-5 h-5"></i></a>
+            <a href="carrito.html" class="text-gray-600 hover:text-green-600 relative">
+                <i data-feather="shopping-cart" class="w-5 h-5"></i>
+                <span id="carrito-contador" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">0</span>
+            </a>
+            <a href="login.html" class="bg-green-600 text-white px-5 py-2 rounded-full text-sm font-medium hover:bg-green-700 transition-colors">Mi Perfil</a>
+        </div>
+    </header>
+
+    <!-- Contenido Principal -->
+    <main class="container mx-auto mt-8 px-4">
+
+        <!-- Título de la Categoría (JS lo llenará) -->
+        <h1 id="categoria-titulo" class="text-3xl font-bold text-gray-800 mb-6">
+            Cargando categoría...
+        </h1>
+        
+        <!-- Contenedor para los productos (JS lo llenará) -->
+        <div id="productos-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Aquí se mostrará el mensaje de "Cargando..." o "Error" -->
+        </div>
+    </main>
+
+    <!-- Footer (copiado de index.html) -->
+    <footer class="text-center text-gray-500 text-sm mt-12 py-6 border-t bg-white">
+        <div class="container mx-auto space-x-4">
+            <a href="#" class="hover:text-black">Sobre Nosotros</a>
+            <a href="#" class="hover:text-black">Contacto</a>
+            <a href="#" class="hover:text-black">Términos y Condiciones</a>
+        </div>
+        <p class="mt-4">© 2025 Savefrut. Todos los derechos reservados.</p>
+    </footer>
+
+    <!-- ¡¡IMPORTANTE: Usamos un JS diferente!! -->
+    <script src="js/productos.js"></script>
+    <script>
+      feather.replace();
+    </script>
+</body>
+</html>
