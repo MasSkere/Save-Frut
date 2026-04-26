@@ -1,4 +1,4 @@
-package com.savefrut.api.security;
+package com.savefrut.api.common.security;
 
 import com.savefrut.api.entity.Usuario;
 import org.springframework.security.core.GrantedAuthority;

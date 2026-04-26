@@ -1,6 +1,6 @@
-package com.savefrut.api.repository;
+package com.savefrut.api.common.repository;
 
-import com.savefrut.api.entity.Usuario;
+import com.savefrut.api.common.entity.Usuario;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -23,4 +23,3 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     Boolean existsByEmail(String email);
     
 }
-    

@@ -1,8 +1,8 @@
-package com.savefrut.api.security.service;
+package com.savefrut.api.common.security.service;
 
-import com.savefrut.api.entity.Usuario;
-import com.savefrut.api.repository.UsuarioRepository;
-import com.savefrut.api.security.UserDetailsImpl;
+import com.savefrut.api.common.entity.Usuario;
+import com.savefrut.api.common.repository.UsuarioRepository;
+import com.savefrut.api.common.security.UserDetailsImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;

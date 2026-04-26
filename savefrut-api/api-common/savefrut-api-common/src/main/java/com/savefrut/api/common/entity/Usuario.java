@@ -1,4 +1,4 @@
-package com.savefrut.api.entity;
+package com.savefrut.api.common.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;

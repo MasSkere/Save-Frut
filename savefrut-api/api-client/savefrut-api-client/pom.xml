@@ -4,12 +4,14 @@
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
 		<groupId>com.savefrut</groupId>
-		<artifactId>savefrut-api-parent</artifactId>
+		<artifactId>savefrut-api</artifactId>
 		<version>0.0.1-SNAPSHOT</version>
+		<relativePath>../../pom.xml</relativePath>
 	</parent>
 	<artifactId>savefrut-api-client</artifactId>
 	<name>savefrut-api-client</name>
 	<description>Client-facing API for SaveFrut (products, orders, payments)</description>
+	<packaging>jar</packaging>
 
 	<dependencies>
 		<dependency>
@@ -45,5 +47,5 @@
 			</plugin>
 		</plugins>
 	</build>
-</project></content>
-<parameter name="filePath">C:\Users\ronad\Desktop\Script-SaveFrut-02-11\savefrut-api\api-client\savefrut-api-client\pom.xml
+</project>
+

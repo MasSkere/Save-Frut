@@ -1,6 +1,6 @@
-package com.savefrut.api.security.jwt;
+package com.savefrut.api.common.security.jwt;
 
-import com.savefrut.api.security.UserDetailsImpl;
+import com.savefrut.api.common.security.UserDetailsImpl;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
