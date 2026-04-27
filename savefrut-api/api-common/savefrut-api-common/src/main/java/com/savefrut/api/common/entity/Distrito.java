@@ -1,4 +1,4 @@
-package com.savefrut.api.entity;
+package com.savefrut.api.common.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -9,7 +9,8 @@ import lombok.Data;
 public class Distrito {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "distrito_seq")
+    @SequenceGenerator(name = "distrito_seq", sequenceName = "distritos_distrito_id_seq", allocationSize = 1)
     @Column(name = "distrito_id")
     private Long distritoId;
 

@@ -1,6 +1,5 @@
-package com.savefrut.api.entity;
+package com.savefrut.api.common.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.math.BigDecimal;
@@ -11,7 +10,8 @@ import java.math.BigDecimal;
 public class Vendedor {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "vendedor_seq")
+    @SequenceGenerator(name = "vendedor_seq", sequenceName = "vendedores_vendedor_id_seq", allocationSize = 1)
     @Column(name = "vendedor_id")
     private Long vendedorId;
 
@@ -20,15 +20,14 @@ public class Vendedor {
 
     @Column(name = "razon_social", nullable = false, length = 255)
     private String razonSocial;
-    
+
     @Column(name = "logo_url", length = 255)
     private String logoUrl;
 
-    @JsonIgnore // Para evitar el error de Lazy Loading
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false, unique = true)
     private Usuario usuario;
-        
+
     @Column(name = "direccion")
     private String direccion;
 
@@ -41,8 +40,10 @@ public class Vendedor {
     @Column(name = "longitud")
     private BigDecimal longitud;
 
-    // Usamos EAGER para que traiga el distrito simple
-    @ManyToOne(fetch = FetchType.EAGER) 
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "distrito_id")
     private Distrito distrito;
+
+    @Column(name = "aprobado")
+    private Boolean aprobado = false;
 }

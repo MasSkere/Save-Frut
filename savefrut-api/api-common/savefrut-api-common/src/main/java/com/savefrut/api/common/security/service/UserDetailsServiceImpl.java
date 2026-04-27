@@ -1,8 +1,8 @@
-package com.savefrut.api.security.service;
+package com.savefrut.api.common.security.service;
 
-import com.savefrut.api.entity.Usuario;
-import com.savefrut.api.repository.UsuarioRepository;
-import com.savefrut.api.security.UserDetailsImpl;
+import com.savefrut.api.common.entity.Usuario;
+import com.savefrut.api.common.repository.UsuarioRepository;
+import com.savefrut.api.common.security.UserDetailsImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -33,6 +33,18 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado con el email: " + username));
 
         // Convertimos nuestro Usuario (JPA) a un UserDetails (Spring Security)
+        return new UserDetailsImpl(usuario);
+    }
+
+    /**
+     * Método adicional para cargar usuario por ID.
+     * Útil para operaciones que requieren el ID del usuario.
+     */
+    @Transactional
+    public UserDetails loadUserById(Long userId) {
+        Usuario usuario = usuarioRepository.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado con el ID: " + userId));
+
         return new UserDetailsImpl(usuario);
     }
 }

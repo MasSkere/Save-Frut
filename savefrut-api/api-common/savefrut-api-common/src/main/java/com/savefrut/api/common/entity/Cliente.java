@@ -1,6 +1,5 @@
-package com.savefrut.api.entity;
+package com.savefrut.api.common.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.math.BigDecimal;
@@ -11,7 +10,8 @@ import java.math.BigDecimal;
 public class Cliente {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "cliente_seq")
+    @SequenceGenerator(name = "cliente_seq", sequenceName = "clientes_cliente_id_seq", allocationSize = 1)
     @Column(name = "cliente_id")
     private Long clienteId;
 
@@ -24,7 +24,6 @@ public class Cliente {
     @Column(name = "telefono", length = 20)
     private String telefono;
 
-    @JsonIgnore
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false, unique = true)
     private Usuario usuario;

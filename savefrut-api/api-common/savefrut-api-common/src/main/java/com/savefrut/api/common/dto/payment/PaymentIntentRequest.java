@@ -1,4 +1,4 @@
-package com.savefrut.api.dto.payment;
+package com.savefrut.api.common.dto.payment;
 
 import lombok.Data;
 import java.util.List;

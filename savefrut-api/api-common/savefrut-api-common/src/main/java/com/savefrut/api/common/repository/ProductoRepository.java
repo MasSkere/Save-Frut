@@ -1,46 +1,61 @@
-package com.savefrut.api.repository;
+package com.savefrut.api.common.repository;
 
-import com.savefrut.api.dto.ProductoDTO;
-import com.savefrut.api.entity.Producto;
+import com.savefrut.api.common.entity.Producto;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ProductoRepository extends JpaRepository<Producto, Long> {
 
-    /**
-     * Llama a la consulta nombrada "Producto.findProductosDisponibles"
-     * (que definimos en Producto.java)
-     */
-    List<ProductoDTO> findProductosDisponibles(@Param("hoy") LocalDate hoy);
+    @Query("SELECT p FROM Producto p JOIN FETCH p.vendedor v JOIN FETCH p.categoria c JOIN FETCH p.medicion m " +
+           "WHERE p.stock > 0 AND p.fechaVencimiento >= :hoy AND p.fechaVencimiento <= :hoyPlus7 ORDER BY p.fechaVencimiento")
+    List<Producto> findDisponibles(@Param("hoy") LocalDate hoy, @Param("hoyPlus7") LocalDate hoyPlus7);
 
-    /**
-     * Llama a la consulta nombrada "Producto.findProductosDisponiblesByCategoria"
-     */
-    List<ProductoDTO> findProductosDisponiblesByCategoria(@Param("hoy") LocalDate hoy, 
-                                                          @Param("categoriaId") Long categoriaId);
+    @Query("SELECT p FROM Producto p JOIN FETCH p.vendedor v JOIN FETCH p.categoria c JOIN FETCH p.medicion m " +
+           "WHERE p.stock > 0 AND p.fechaVencimiento >= :hoy AND p.fechaVencimiento <= :hoyPlus7 AND p.categoria.id = :categoriaId ORDER BY p.fechaVencimiento")
+    List<Producto> findByCategoria(@Param("hoy") LocalDate hoy, @Param("hoyPlus7") LocalDate hoyPlus7, @Param("categoriaId") Long categoriaId);
 
-    /**
-     * Llama a la consulta nombrada "Producto.findProductoDTOById"
-     * Devuelve una lista (la manejamos en el controller)
-     */
-    List<ProductoDTO> findProductoDTOById(@Param("hoy") LocalDate hoy, 
-                                          @Param("productoId") Long productoId);
-    
- // +++++ +++++
-    /**
-     * Llama a la consulta nombrada "Producto.findProductosDisponiblesByVendedor"
-     */
-    List<ProductoDTO> findProductosDisponiblesByVendedor(@Param("hoy") LocalDate hoy,
-                                                         @Param("vendedorId") Long vendedorId);
+    @Query("SELECT p FROM Producto p JOIN FETCH p.vendedor v JOIN FETCH p.categoria c JOIN FETCH p.medicion m " +
+           "WHERE p.id = :productoId AND p.stock > 0 AND p.fechaVencimiento >= :hoy AND p.fechaVencimiento <= :hoyPlus7")
+    List<Producto> findByIdAvailable(@Param("productoId") Long productoId, @Param("hoy") LocalDate hoy, @Param("hoyPlus7") LocalDate hoyPlus7);
 
-    /**
-     * Llama al SP "sp_buscar_productos_por_nombre"
-     */
-    List<ProductoDTO> buscarProductosPorNombre(@Param("hoy") LocalDate hoy,
-                                               @Param("termino") String termino);
+    @Query("SELECT p FROM Producto p JOIN FETCH p.vendedor v JOIN FETCH p.categoria c JOIN FETCH p.medicion m " +
+           "WHERE p.stock > 0 AND p.fechaVencimiento >= :hoy AND p.fechaVencimiento <= :hoyPlus7 AND p.vendedor.vendedorId = :vendedorId ORDER BY p.fechaVencimiento")
+    List<Producto> findByVendedor(@Param("hoy") LocalDate hoy, @Param("hoyPlus7") LocalDate hoyPlus7, @Param("vendedorId") Long vendedorId);
+
+    @Query("SELECT p FROM Producto p JOIN FETCH p.vendedor v JOIN FETCH p.categoria c JOIN FETCH p.medicion m " +
+           "WHERE p.stock > 0 AND p.fechaVencimiento >= :hoy AND p.fechaVencimiento <= :hoyPlus7 AND LOWER(p.nombre) LIKE LOWER(CONCAT('%', :termino, '%')) ORDER BY p.fechaVencimiento")
+    List<Producto> findByNombreContaining(@Param("hoy") LocalDate hoy, @Param("hoyPlus7") LocalDate hoyPlus7, @Param("termino") String termino);
+
+    long countByStockLessThan(int stock);
+
+    @Query("SELECT COUNT(p) FROM Producto p WHERE p.baja = false AND p.fechaVencimiento < :limite")
+    long countPorVencer(@Param("limite") LocalDate limite);
+
+    @Query("SELECT p FROM Producto p WHERE p.baja = false AND (p.fechaVencimiento < :limite OR p.stock < :stock) ORDER BY p.fechaVencimiento")
+    List<Producto> findAlertas(@Param("limite") LocalDate limite, @Param("stock") int stock);
+
+    // Métodos para Vendedor API con protección IDOR
+    @Query(value = "SELECT p FROM Producto p WHERE p.vendedor.vendedorId = :vendedorId ORDER BY p.id", countQuery = "SELECT COUNT(p) FROM Producto p WHERE p.vendedor.vendedorId = :vendedorId")
+    Page<Producto> findByVendedorVendedorId(@Param("vendedorId") Long vendedorId, Pageable pageable);
+
+    @Query("SELECT p FROM Producto p WHERE p.id = :id AND p.vendedor.vendedorId = :vendedorId")
+    Optional<Producto> findByIdAndVendedorVendedorId(@Param("id") Long id, @Param("vendedorId") Long vendedorId);
+
+    @Query("SELECT COUNT(p) FROM Producto p WHERE p.vendedor.vendedorId = :vendedorId AND p.stock < :stock")
+    long countByVendedorVendedorIdAndStockLessThan(@Param("vendedorId") Long vendedorId, @Param("stock") int stock);
+
+    @Query("SELECT COUNT(p) FROM Producto p WHERE p.vendedor.vendedorId = :vendedorId AND p.baja = false")
+    long countByVendedorVendedorIdAndBajaFalse(@Param("vendedorId") Long vendedorId);
+
+    @Query("SELECT p FROM Producto p JOIN FETCH p.categoria WHERE p.vendedor.vendedorId = :vendedorId ORDER BY p.fechaVencimiento DESC")
+    List<Producto> findTop3ByVendedorId(@Param("vendedorId") Long vendedorId, Pageable pageable);
 }

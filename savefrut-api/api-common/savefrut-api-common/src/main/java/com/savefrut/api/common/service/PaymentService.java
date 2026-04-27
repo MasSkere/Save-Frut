@@ -1,108 +1,138 @@
-package com.savefrut.api.service;
+package com.savefrut.api.common.service;
 
-import com.savefrut.api.dto.ProductoDTO;
-import com.savefrut.api.dto.payment.PaymentIntentRequest;
-import com.savefrut.api.repository.ProductoRepository;
-import com.stripe.Stripe;
-import com.stripe.exception.StripeException;
-import com.stripe.model.PaymentIntent;
-import com.stripe.param.PaymentIntentCreateParams;
+import com.mercadopago.MercadoPagoConfig;
+import com.mercadopago.client.preference.PreferenceClient;
+import com.mercadopago.client.preference.PreferenceItemRequest;
+import com.mercadopago.client.preference.PreferenceRequest;
+import com.mercadopago.exceptions.MPApiException;
+import com.mercadopago.exceptions.MPException;
+import com.mercadopago.resources.preference.Preference;
+import com.savefrut.api.common.dto.payment.PaymentIntentRequest;
+import com.savefrut.api.common.entity.Producto;
+import com.savefrut.api.common.repository.ProductoRepository;
 import jakarta.annotation.PostConstruct;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class PaymentService {
 
-    // 1. Leemos la clave secreta desde application.properties
-    @Value("${stripe.secret.key}")
-    private String secretKey;
+    private static final BigDecimal TARIFA_VARIEDAD_SOLES = new BigDecimal("5.00");
+    private static final String CURRENCY_PEN = "PEN";
+    private static final String DESCRIPCION_COMPRA = "Compra en SaveFrut";
+    private static final int DIAS_DESCUENTO_MAXIMO = 7;
+    private static final int DIAS_DESCUENTO_CERCANO = 2;
+    private static final BigDecimal DESCUENTO_LEJANO = new BigDecimal("0.70");
+    private static final BigDecimal DESCUENTO_CERCANO = new BigDecimal("0.40");
 
-    @Autowired
-    private ProductoRepository productoRepository; // Para buscar precios reales
+    @Value("${mercadopago.access-token}")
+    private String accessToken;
 
-    // 2. Constantes de tu lógica de negocio
-    private static final BigDecimal TARIFA_VARIEDAD = new BigDecimal("5.00");
+    private final ProductoRepository productoRepository;
 
     @PostConstruct
     public void init() {
-        // Configuramos la clave de Stripe globalmente
-        Stripe.apiKey = secretKey;
+        MercadoPagoConfig.setAccessToken(accessToken);
+        log.info("MercadoPago SDK inicializado correctamente.");
     }
 
-    /**
-     * Lógica de negocio para crear un intento de pago.
-     * Es llamada por el PaymentController.
-     */
-    @Transactional(readOnly = true) // Usamos @Transactional para la lectura de productos
-    public PaymentIntent crearIntentoDePagoStripe(PaymentIntentRequest request) throws StripeException {
+    @Transactional(readOnly = true)
+    public Preference crearPreferenciaDePago(PaymentIntentRequest request)
+            throws MPException, MPApiException {
 
-        // 1. Recalculamos el total real en el backend.
-        long montoRealEnCentavos = calcularTotalReal(request);
+        BigDecimal totalEnSoles = calcularTotalVerificado(request);
+        log.debug("Total verificado para preferencia MP: S/ {}", totalEnSoles);
 
-        // 2. Creamos los parámetros para Stripe
-        PaymentIntentCreateParams params =
-            PaymentIntentCreateParams.builder()
-                .setAmount(montoRealEnCentavos) 
-                .setCurrency("pen") // Soles Peruanos
-                .addPaymentMethodType("card")
+        PreferenceRequest preferenceRequest = buildPreferenceRequest(totalEnSoles);
+        return new PreferenceClient().create(preferenceRequest);
+    }
+
+    private PreferenceRequest buildPreferenceRequest(BigDecimal totalEnSoles) {
+        PreferenceItemRequest item = PreferenceItemRequest.builder()
+                .title(DESCRIPCION_COMPRA)
+                .quantity(1)
+                .unitPrice(totalEnSoles)
+                .currencyId(CURRENCY_PEN)
                 .build();
 
-        // 3. Llamamos a la API de Stripe y devolvemos el objeto
-        return PaymentIntent.create(params);
+        return PreferenceRequest.builder()
+                .items(List.of(item))
+                .build();
     }
 
-    /**
-     * ¡LÓGICA DE NEGOCIO "CONFIANZA CERO"!
-     * Recalcula el precio total basándose en los datos de la BD.
-     */
-    private long calcularTotalReal(PaymentIntentRequest request) {
-        
-        Set<Long> productoIds = request.getItems().stream()
+    private BigDecimal calcularTotalVerificado(PaymentIntentRequest request) {
+        Map<Long, ItemVerificado> productosVerificados = obtenerProductosVerificados(request);
+
+        BigDecimal subtotal = calcularSubtotal(request.getItems(), productosVerificados);
+        BigDecimal tarifaVariedad = calcularTarifaVariedad(productosVerificados);
+        BigDecimal costoEnvio = BigDecimal.valueOf(request.getCostoEnvio());
+
+        return subtotal.add(tarifaVariedad).add(costoEnvio);
+    }
+
+    private Map<Long, ItemVerificado> obtenerProductosVerificados(PaymentIntentRequest request) {
+        Set<Long> idsRequeridos = extraerIdsDeItems(request.getItems());
+        LocalDate hoy = LocalDate.now();
+
+        return idsRequeridos.stream()
+                .map(id -> productoRepository
+                        .findByIdAvailable(id, hoy, hoy.plusDays(DIAS_DESCUENTO_MAXIMO))
+                        .stream()
+                        .findFirst()
+                        .map(this::toItemVerificado)
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "Producto no encontrado o sin precio vigente: " + id)))
+                .collect(Collectors.toMap(item -> item.id, item -> item));
+    }
+
+    private ItemVerificado toItemVerificado(Producto p) {
+        int diasParaVencer = LocalDate.now().until(p.getFechaVencimiento()).getDays();
+        BigDecimal precioDescuento = diasParaVencer <= DIAS_DESCUENTO_CERCANO
+                ? p.getPrecioNormal().multiply(DESCUENTO_CERCANO)
+                : p.getPrecioNormal().multiply(DESCUENTO_LEJANO);
+        precioDescuento = precioDescuento.setScale(2, RoundingMode.HALF_UP);
+
+        return new ItemVerificado(p.getId(), precioDescuento, p.getVendedor().getVendedorId());
+    }
+
+    private Set<Long> extraerIdsDeItems(List<PaymentIntentRequest.Item> items) {
+        return items.stream()
                 .map(PaymentIntentRequest.Item::getId)
                 .collect(Collectors.toSet());
-        
-        // 1. Traemos los productos REALES de la BD (usando nuestro SP)
-        Map<Long, ProductoDTO> productosReales = productoRepository.findAllById(productoIds).stream()
-            .map(p -> productoRepository.findProductoDTOById(LocalDate.now(), p.getId()).stream().findFirst()
-                .orElseThrow(() -> new RuntimeException("Producto no encontrado: " + p.getId())))
-            .collect(Collectors.toMap(ProductoDTO::getId, dto -> dto));
-
-
-        BigDecimal subtotalReal = BigDecimal.ZERO;
-        
-        // 2. Recalculamos Subtotal
-        for (PaymentIntentRequest.Item itemCliente : request.getItems()) {
-            ProductoDTO productoReal = productosReales.get(itemCliente.getId());
-            
-            // ¡Usamos el precio con descuento DE LA BD!
-            subtotalReal = subtotalReal.add(
-                productoReal.getPrecioDescuento().multiply(BigDecimal.valueOf(itemCliente.getCantidad()))
-            );
-        }
-        
-        // 3. Calcular Tarifa por Variedad
-        Set<Long> vendedorIds = productosReales.values().stream()
-                .map(ProductoDTO::getVendedorId)
-                .collect(Collectors.toSet());
-        
-        BigDecimal tarifaVariedadReal = (vendedorIds.size() > 1) ? TARIFA_VARIEDAD : BigDecimal.ZERO;
-
-        // 4. Validar Costo de Envío
-        BigDecimal costoEnvioReal = BigDecimal.valueOf(request.getCostoEnvio());
-        
-        // 5. Calcular Total REAL
-        BigDecimal totalReal = subtotalReal.add(tarifaVariedadReal).add(costoEnvioReal);
-
-        // 6. Convertir a centavos para Stripe (ej. 17.20 -> 1720)
-        return totalReal.multiply(new BigDecimal("100")).longValue();
     }
+
+    private BigDecimal calcularSubtotal(List<PaymentIntentRequest.Item> items,
+                                    Map<Long, ItemVerificado> productosPorId) {
+        return items.stream()
+                .map(item -> {
+                    ItemVerificado producto = productosPorId.get(item.getId());
+                    return producto.precioDescuento.multiply(BigDecimal.valueOf(item.getCantidad()));
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal calcularTarifaVariedad(Map<Long, ItemVerificado> productosPorId) {
+        long cantidadVendedores = productosPorId.values().stream()
+                .map(ItemVerificado::vendedorId)
+                .distinct()
+                .count();
+
+        return cantidadVendedores > 1 ? TARIFA_VARIEDAD_SOLES : BigDecimal.ZERO;
+    }
+
+    // Así de limpia queda tu clase contenedora de datos
+    private record ItemVerificado(Long id, BigDecimal precioDescuento, Long vendedorId) {}
 }

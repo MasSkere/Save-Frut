@@ -1,47 +1,65 @@
-package com.savefrut.api.config;
+package com.savefrut.api.common.config;
 
-
-import com.savefrut.api.security.JwtAuthEntryPoint;
-import com.savefrut.api.security.jwt.JwtTokenFilter;
-import com.savefrut.api.security.service.UserDetailsServiceImpl;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.savefrut.api.common.security.jwt.JwtTokenFilter;
+import com.savefrut.api.common.security.JwtAuthEntryPoint;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-
-// --- Imports nuevos para CORS ---
-import org.springframework.security.config.Customizer;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+
 import java.util.List;
 
+/**
+ * Configuración central de Spring Security.
+ *
+ * <p>Decisiones de diseño:
+ * <ul>
+ *   <li>Sesión stateless — la autenticación se maneja exclusivamente por JWT.</li>
+ *   <li>CSRF deshabilitado — no aplica en APIs REST stateless.</li>
+ *   <li>CORS configurado a nivel de Security para cubrir todos los endpoints.</li>
+ * </ul>
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
-    @Autowired
-    private UserDetailsServiceImpl userDetailsService;
+    // ─── Endpoints públicos ────────────────────────────────────────────────────
 
-    @Autowired
-    private JwtAuthEntryPoint unauthorizedHandler;
+    private static final String[] PUBLIC_ENDPOINTS = {
+            "/api/auth/**",
+            "/api/productos/**","/api/productos",
+            "/api/categorias/**","/api/categorias",
+            "/api/vendedores/**","/api/vendedores",
+            "/api/ubicacion/**", "/error"
+    };
 
-    @Bean
-    public JwtTokenFilter jwtTokenFilter() {
-        return new JwtTokenFilter();
-    }
+    // ─── Dependencias ──────────────────────────────────────────────────────────
+
+    private final UserDetailsService userDetailsService;  // interfaz, no la implementación
+    private final JwtAuthEntryPoint  unauthorizedHandler;
+    private final JwtTokenFilter     jwtTokenFilter;       // Spring lo inyecta via @Component
+
+    // ─── Beans de seguridad ────────────────────────────────────────────────────
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -49,61 +67,55 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
-        return authConfig.getAuthenticationManager();
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config)
+            throws Exception {
+        return config.getAuthenticationManager();
     }
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-        authProvider.setUserDetailsService(userDetailsService);
-        authProvider.setPasswordEncoder(passwordEncoder());
-        return authProvider;
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
     }
+
+    // ─── Cadena de filtros ─────────────────────────────────────────────────────
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // --- AÑADIMOS LA CONFIGURACIÓN DE CORS DE SPRING SECURITY ---
-                .cors(Customizer.withDefaults()) // Esto le dice a Security que use el Bean "corsConfigurationSource"
-                
-                .csrf(csrf -> csrf.disable())
+                .cors(Customizer.withDefaults())
+                .csrf(AbstractHttpConfigurer::disable)
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(auth -> auth
-                        // Endpoints públicos
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/productos/**").permitAll()
-                        .requestMatchers("/api/categorias/**").permitAll()
-                        .requestMatchers("/api/vendedores/**").permitAll()
-                        .requestMatchers("/api/ubicacion/**").permitAll()
-                        
-                        //.requestMatchers("/api/ordenes/rastrear/**").permitAll()
-                        
-                        // Todas las demás peticiones deben estar autenticadas
+                        .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .anyRequest().authenticated()
-                );
-
-        http.addFilterBefore(jwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
+                )
+                .addFilterBefore(jwtTokenFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
+    // ─── CORS ─────────────────────────────────────────────────────────────────
+
     /**
-     * --- ESTE ES EL NUEVO BEAN PARA CORS ---
-     * Esto reemplaza la necesidad de WebConfig.java
-     * Le dice a Spring Security que permita peticiones de CUALQUIER origen.
+     * Configura CORS a nivel de Spring Security.
+     *
+     * <p><strong>Nota para producción:</strong> reemplazar {@code "*"} en
+     * {@code allowedOrigins} por los dominios reales del frontend antes del deploy.
      */
     @Bean
-    CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("*")); // Permite a todos (incluido 'null' de file://)
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type"));
-        
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("*"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type"));
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/api/**", configuration); // Aplica a todo /api/
+        source.registerCorsConfiguration("/api/**", config);
         return source;
     }
 }

@@ -1,27 +1,33 @@
-version: '3.9'
 
 services:
-  # SQL Server
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+
+  # ── 1. Base de Datos (PostgreSQL) ───────────────────────────────────────────
+  postgres:
+    container_name: savefrut_db
+    image: postgres:16-alpine
     environment:
-      SA_PASSWORD: ${DB_PASS:-SecurePass123!}
-      ACCEPT_EULA: Y
+      DB_URL: jdbc:postgresql://postgres:5432/db_savefrut
+      POSTGRES_DB: db_savefrut
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASS:-123456}
     ports:
-      - "1433:1433"
+      - "5432:5432"
     volumes:
-      - sqlserver_data:/var/opt/mssql
+      - postgres_data:/var/lib/postgresql/data
+      # Ejecución automática de tu script inicial
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD", "/opt/mssql-tools/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "${DB_PASS}", "-Q", "SELECT 1"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d db_savefrut"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # Redis (caché)
+  # ── 2. Caché (Redis) ──────────────────────────────────────────────────────────
   redis:
+    container_name: savefrut_redis
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -30,37 +36,40 @@ services:
       timeout: 5s
       retries: 5
 
-  # Spring Boot API
+  # ── 3. Aplicación Backend (Spring Boot) ───────────────────────────────────────
   api:
+    container_name: savefrut_api
     build:
-      context: ./savefrut-api/api-client
+      context: .  # Apunta a la raíz donde movimos el Dockerfile
       dockerfile: Dockerfile
     environment:
       SPRING_PROFILE: ${SPRING_PROFILE:-dev}
-      DB_URL: jdbc:sqlserver://sqlserver:1433;databaseName=db_savefrut
-      DB_USER: ${DB_USER:-sa}
-      DB_PASS: ${DB_PASS:-SecurePass123!}
+      # Conexión apuntando al contenedor de PostgreSQL
+      DB_URL: jdbc:postgresql://postgres:5432/db_savefrut
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASS: ${DB_PASS:-123456}
       JWT_SECRET: ${JWT_SECRET:-your_secret_key_min_32_chars_long!!!}
       JWT_ACCESS_EXPIRATION_MINUTES: ${JWT_ACCESS_EXPIRATION_MINUTES:-30}
       JWT_REFRESH_EXPIRATION_DAYS: ${JWT_REFRESH_EXPIRATION_DAYS:-7}
       MERCADO_PAGO_ACCESS_TOKEN: ${MERCADO_PAGO_ACCESS_TOKEN:-TEST}
       MERCADO_PAGO_PUBLIC_KEY: ${MERCADO_PAGO_PUBLIC_KEY:-TEST}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
       SERVER_PORT: ${SERVER_PORT:-8091}
     ports:
       - "${SERVER_PORT:-8091}:${SERVER_PORT:-8091}"
     depends_on:
-      sqlserver:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - ./savefrut-api:/app
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${SERVER_PORT:-8091}/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 3
 
+# ── 4. Declaración de Volúmenes ─────────────────────────────────────────────────
 volumes:
-  sqlserver_data:
+  postgres_data:
   redis_data:

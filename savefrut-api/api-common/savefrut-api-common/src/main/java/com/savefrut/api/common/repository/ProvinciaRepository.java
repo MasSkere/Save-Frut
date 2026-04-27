@@ -1,6 +1,6 @@
-package com.savefrut.api.repository;
+package com.savefrut.api.common.repository;
 
-import com.savefrut.api.entity.Provincia;
+import com.savefrut.api.common.entity.Provincia;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

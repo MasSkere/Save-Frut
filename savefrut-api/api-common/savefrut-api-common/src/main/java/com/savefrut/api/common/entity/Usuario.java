@@ -1,4 +1,4 @@
-package com.savefrut.api.entity;
+package com.savefrut.api.common.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -10,7 +10,8 @@ import java.time.LocalDateTime;
 public class Usuario {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "usuario_seq")
+    @SequenceGenerator(name = "usuario_seq", sequenceName = "usuarios_usuario_id_seq", allocationSize = 1)
     @Column(name = "usuario_id")
     private Long id;
 
@@ -18,11 +19,14 @@ public class Usuario {
     private String email;
 
     @Column(name = "password_hash", length = 255, nullable = false)
-    private String password; // La columna se llama password_hash, pero en Java la llamamos password
+    private String password;
 
-    @ManyToOne(fetch = FetchType.EAGER) // EAGER es importante para que Spring Security cargue el rol
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "rol_id", nullable = false)
     private Rol rol;
+
+    @Column(name = "estado", length = 20)
+    private String estado = "ACTIVO";
 
     @Column(name = "fecha_registro", updatable = false)
     private LocalDateTime fechaRegistro;

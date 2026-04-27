@@ -1,4 +1,4 @@
-package com.savefrut.api.dto.auth;
+package com.savefrut.api.common.dto.auth;
 
 import lombok.Data;
 import java.util.List;

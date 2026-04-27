@@ -1,35 +1,36 @@
-package com.savefrut.api.controller;
+package com.savefrut.api.client.controller;
 
-import com.savefrut.api.entity.Distrito;
-import com.savefrut.api.entity.Provincia;
-import com.savefrut.api.repository.DistritoRepository;
-import com.savefrut.api.repository.ProvinciaRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.savefrut.api.common.dto.DistritoDTO;
+import com.savefrut.api.common.dto.ProvinciaDTO;
+import com.savefrut.api.common.mapper.UbicacionMapper;
+import com.savefrut.api.common.repository.DistritoRepository;
+import com.savefrut.api.common.repository.ProvinciaRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
 
-/**
- * Endpoints públicos para llenar los <select> (combobox)
- * de Provincias y Distritos en el formulario de envío.
- */
+import java.util.List;
+import java.util.stream.Collectors;
+
 @RestController
 @RequestMapping("/api/ubicacion")
-@CrossOrigin
+@RequiredArgsConstructor
 public class UbicacionController {
 
-    @Autowired
-    private ProvinciaRepository provinciaRepository;
-
-    @Autowired
-    private DistritoRepository distritoRepository;
+    private final ProvinciaRepository provinciaRepository;
+    private final DistritoRepository distritoRepository;
+    private final UbicacionMapper ubicacionMapper;
 
     @GetMapping("/provincias")
-    public List<Provincia> getProvincias() {
-        return provinciaRepository.findAll();
+    public List<ProvinciaDTO> getProvincias() {
+        return provinciaRepository.findAll().stream()
+                .map(ubicacionMapper::toProvinciaDTO)
+                .collect(Collectors.toList());
     }
 
     @GetMapping("/distritos/{provinciaId}")
-    public List<Distrito> getDistritosPorProvincia(@PathVariable Long provinciaId) {
-        return distritoRepository.findByProvinciaId(provinciaId);
+    public List<DistritoDTO> getDistritosPorProvincia(@PathVariable Long provinciaId) {
+        return distritoRepository.findByProvinciaId(provinciaId).stream()
+                .map(ubicacionMapper::toDistritoDTO)
+                .collect(Collectors.toList());
     }
 }

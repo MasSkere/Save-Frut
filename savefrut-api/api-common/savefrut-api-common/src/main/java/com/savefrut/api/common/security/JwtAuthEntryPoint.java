@@ -1,4 +1,4 @@
-package com.savefrut.api.security;
+package com.savefrut.api.common.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;

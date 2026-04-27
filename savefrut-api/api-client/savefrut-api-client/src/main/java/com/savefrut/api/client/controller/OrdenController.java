@@ -1,64 +1,54 @@
-package com.savefrut.api.controller;
+package com.savefrut.api.client.controller;
 
-import com.savefrut.api.dto.ComprobanteDTO;
-import com.savefrut.api.dto.OrdenRequestDTO; // ¡Import cambiado!
-import com.savefrut.api.entity.Orden;
-import com.savefrut.api.security.UserDetailsImpl;
-import com.savefrut.api.service.OrdenService;
+import com.savefrut.api.common.dto.ComprobanteDTO;
+import com.savefrut.api.common.dto.OrdenDTO;
+import com.savefrut.api.common.dto.OrdenRequestDTO;
+import com.savefrut.api.common.mapper.OrdenControllerMapper;
+import com.savefrut.api.common.service.OrdenService;
+import com.savefrut.api.common.util.SecurityUtils;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/ordenes")
-@CrossOrigin
+@RequiredArgsConstructor
 public class OrdenController {
 
-    @Autowired
-    private OrdenService ordenService;
+    private final OrdenService ordenService;
+    private final OrdenControllerMapper ordenMapper;
 
-    /**
-     * ENDPOINT: POST /api/ordenes
-     * Crea una nueva orden (Checkout).
-     * ¡Está protegido! Solo 'ROLE_CLIENTE' puede entrar.
-     * Llama al nuevo OrdenService que recalcula el total.
-     */
     @PostMapping
     @PreAuthorize("hasRole('CLIENTE')")
-    public ResponseEntity<Orden> crearOrden(@Valid @RequestBody OrdenRequestDTO ordenRequest,
-                                            Authentication authentication) {
-        
-        // 1. Obtenemos el ID del usuario desde el Token JWT
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        Long usuarioId = userDetails.getId();
-        
-        // 2. Llamamos al servicio con el DTO del cliente y el ID seguro
-        Orden nuevaOrden = ordenService.crearOrden(ordenRequest, usuarioId);
-        
-        // 3. Respondemos con la orden creada
-        return ResponseEntity.status(201).body(nuevaOrden);
+    public ResponseEntity<OrdenDTO> crearOrden(@Valid @RequestBody OrdenRequestDTO request,
+                                             Authentication authentication) {
+        Long usuarioId = SecurityUtils.extraerUsuarioId(authentication);
+        var ordenCreada = ordenService.crearOrden(request, usuarioId);
+
+        log.info("Orden creada con id {} para usuario {}", ordenCreada.getId(), usuarioId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ordenMapper.toDTO(ordenCreada));
     }
-    
+
     @GetMapping("/comprobante/{id}")
     @PreAuthorize("hasRole('CLIENTE')")
-    public ResponseEntity<ComprobanteDTO> getComprobante(@PathVariable Long id, Authentication authentication) {
-        
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        Long usuarioId = userDetails.getId();
-        
+    public ResponseEntity<ComprobanteDTO> getComprobante(@PathVariable Long id,
+                                                     Authentication authentication) {
+        Long usuarioId = SecurityUtils.extraerUsuarioId(authentication);
+
         try {
-            // Llama a la nueva función del servicio
-            ComprobanteDTO comprobante = ordenService.getDatosComprobante(id, usuarioId);
-            return ResponseEntity.ok(comprobante);
+            return ResponseEntity.ok(ordenService.getDatosComprobante(id, usuarioId));
         } catch (SecurityException e) {
-            // Si la orden no es del usuario
-            return ResponseEntity.status(403).build(); // 403 Forbidden
-        } catch (Exception e) {
-            // Si la orden no existe
-            return ResponseEntity.status(404).build(); // 404 Not Found
+            log.warn("Acceso denegado a comprobante {} para usuario {}", id, usuarioId);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (IllegalArgumentException e) {
+            log.warn("Comprobante no encontrado: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
     }
 }

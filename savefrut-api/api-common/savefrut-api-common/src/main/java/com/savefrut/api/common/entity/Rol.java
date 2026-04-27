@@ -1,4 +1,4 @@
-package com.savefrut.api.entity;
+package com.savefrut.api.common.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -9,7 +9,8 @@ import lombok.Data;
 public class Rol {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "rol_seq")
+    @SequenceGenerator(name = "rol_seq", sequenceName = "roles_rol_id_seq", allocationSize = 1)
     @Column(name = "rol_id")
     private Long id;
 

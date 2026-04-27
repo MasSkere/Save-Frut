@@ -1,4 +1,4 @@
-package com.savefrut.api.dto;
+package com.savefrut.api.common.dto;
 
 import lombok.Data;
 import java.math.BigDecimal;
