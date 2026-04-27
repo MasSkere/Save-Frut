@@ -1,4 +1,4 @@
-package com.savefrut.api.dto;
+package com.savefrut.api.common.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;

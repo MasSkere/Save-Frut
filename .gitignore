@@ -1,16 +1,5 @@
-# Compiled class file
+# ── Compiled ──────────────────────────────────────────────────────────────────
 *.class
-
-# Log file
-*.log
-
-# BlueJ files
-*.ctxt
-
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
-
-# Package Files #
 *.jar
 *.war
 *.nar
@@ -19,28 +8,23 @@
 *.tar.gz
 *.rar
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
-replay_pid*
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+spring.log
 
-# Eclipse
-.project
-.classpath
-.settings/
-
-# IntelliJ IDEA
+# ── IDEs ──────────────────────────────────────────────────────────────────────
 .idea/
 *.iws
 *.iml
 *.ipr
-
-# NetBeans
+.project
+.classpath
+.settings/
 nbproject/
-
-# VS Code
 .vscode/
+.ctxt
 
-# Maven
+# ── Maven ─────────────────────────────────────────────────────────────────────
 target/
 pom.xml.tag
 pom.xml.releaseBackup
@@ -52,28 +36,28 @@ buildNumber.properties
 .mvn/timing.properties
 .mvn/wrapper/maven-wrapper.jar
 
-# Spring Boot
-spring.log
-
-# Environment variables
+# ── Variables de entorno y secrets ────────────────────────────────────────────
+# ⚠️ NUNCA subir estos archivos al repositorio
 .env
 .env.local
 .env.production
+application-dev.properties
 
-# Database
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+hs_err_pid*
+replay_pid*
+*.tmp
+*.temp
+.mtj.tmp/
+
+# ── Base de datos ─────────────────────────────────────────────────────────────
 *.db
 *.sqlite
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Temporary files
-*.tmp
-*.temp
-
-# Node modules (if any)
+# ── Node ──────────────────────────────────────────────────────────────────────
 node_modules/
 
-# Docker
+# ── Docker ────────────────────────────────────────────────────────────────────
 .dockerignore

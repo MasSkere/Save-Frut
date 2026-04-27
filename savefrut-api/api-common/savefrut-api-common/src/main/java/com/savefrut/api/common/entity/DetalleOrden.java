@@ -1,4 +1,4 @@
-package com.savefrut.api.entity;
+package com.savefrut.api.common.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -10,7 +10,8 @@ import java.math.BigDecimal;
 public class DetalleOrden {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "detalle_orden_seq")
+    @SequenceGenerator(name = "detalle_orden_seq", sequenceName = "detalle_orden_detalle_orden_id_seq", allocationSize = 1)
     @Column(name = "detalle_orden_id")
     private Long id;
 
@@ -26,4 +27,19 @@ public class DetalleOrden {
 
     @Column(name = "precio_unitario", nullable = false)
     private BigDecimal precioUnitario;
+public void setOrden(Orden orden) {
+        this.orden = orden;
+    }
+
+    public void setProducto(Producto producto) {
+        this.producto = producto;
+    }
+
+    public void setCantidad(int cantidad) {
+        this.cantidad = cantidad;
+    }
+
+    public void setPrecioUnitario(BigDecimal precioUnitario) {
+        this.precioUnitario = precioUnitario;
+    }
 }

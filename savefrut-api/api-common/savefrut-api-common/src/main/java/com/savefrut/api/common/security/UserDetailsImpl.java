@@ -1,6 +1,6 @@
 package com.savefrut.api.common.security;
 
-import com.savefrut.api.entity.Usuario;
+import com.savefrut.api.common.entity.Usuario;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;

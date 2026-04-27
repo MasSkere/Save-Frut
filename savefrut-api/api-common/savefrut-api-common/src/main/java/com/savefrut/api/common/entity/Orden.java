@@ -1,9 +1,9 @@
-package com.savefrut.api.entity;
+package com.savefrut.api.common.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Data
 @Entity
@@ -11,7 +11,8 @@ import java.time.Instant;
 public class Orden {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "orden_seq")
+    @SequenceGenerator(name = "orden_seq", sequenceName = "ordenes_orden_id_seq", allocationSize = 1)
     @Column(name = "orden_id")
     private Long id;
 
@@ -20,7 +21,7 @@ public class Orden {
     private Cliente cliente;
 
     @Column(name = "fecha_orden", nullable = false, updatable = false)
-    private Instant fechaOrden = Instant.now();
+    private LocalDateTime fechaOrden = LocalDateTime.now();
 
     @Column(name = "estado_orden", nullable = false, length = 50)
     private String estadoOrden;

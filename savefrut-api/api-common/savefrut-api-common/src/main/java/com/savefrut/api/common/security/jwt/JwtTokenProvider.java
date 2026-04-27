@@ -8,8 +8,7 @@ import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -20,158 +19,144 @@ import java.util.Date;
 import java.util.stream.Collectors;
 
 /**
- * Esta clase es el "cerebro" de JWT.
- * Se encarga de:
- * 1. Generar nuevos tokens (el "pase VIP").
- * 2. Validar tokens existentes (el "sello holográfico").
- * 3. Extraer información del token (ej. el email).
+ * Componente responsable de generar, validar y parsear tokens JWT.
+ *
+ * <p>Maneja dos tipos de tokens:
+ * <ul>
+ *   <li><b>Access token</b> — vida corta, contiene email, roles e ID del usuario.</li>
+ *   <li><b>Refresh token</b> — vida larga, contiene solo el ID del usuario.</li>
+ * </ul>
  */
+@Slf4j
 @Component
 public class JwtTokenProvider {
 
-    private static final Logger logger = LoggerFactory.getLogger(JwtTokenProvider.class);
+    // ─── Constantes ────────────────────────────────────────────────────────────
 
-    // 1. Clave Secreta: Es la "firma" de nuestros tokens.
-    // DEBE ser larga y segura. La ponemos en 'application.properties'.
-    @Value("${app.jwt.secret}")
+    private static final String CLAIM_ROLES   = "roles";
+    private static final String CLAIM_USER_ID = "userId";
+    private static final long   MILLIS_PER_MINUTE = 60_000L;
+    private static final long   MILLIS_PER_DAY    = 86_400_000L;
+
+    // ─── Configuración ─────────────────────────────────────────────────────────
+
+    @Value("${JWT_SECRET}")
     private String jwtSecret;
 
-    // 2. Tiempo de Expiración: Cuánto dura el "pase VIP".
-    // También la ponemos en 'application.properties'.
-    @Value("${app.jwt.expiration-minutes}")
-    private int jwtExpirationMinutes;
+    @Value("${JWT_ACCESS_EXPIRATION_MINUTES}")
+    private int accessExpirationMinutes;
 
-    // 3. Tiempo de Expiración para Refresh Token
-    @Value("${app.jwt.refresh.expiration-days}")
-    private int jwtRefreshExpirationDays;
+    @Value("${JWT_REFRESH_EXPIRATION_DAYS}")
+    private int refreshExpirationDays;
+
+    // ─── Generación de tokens ──────────────────────────────────────────────────
 
     /**
-     * Genera un nuevo token JWT para un usuario que se ha autenticado exitosamente.
-     * @param authentication El objeto Authentication de Spring Security (contiene el UserDetailsImpl).
-     * @return Un String que es el Token JWT.
+     * Genera un access token JWT para el usuario autenticado.
+     *
+     * @param authentication contexto de autenticación de Spring Security
+     * @return access token firmado
      */
     public String generateToken(Authentication authentication) {
-
         UserDetailsImpl userPrincipal = (UserDetailsImpl) authentication.getPrincipal();
-        
-        // Obtenemos los roles del usuario (ej. "ROLE_CLIENTE")
+
         String roles = userPrincipal.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
 
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + jwtExpirationMinutes * 60 * 1000);
-
         return Jwts.builder()
-                // "Subject" (Asunto): El email del usuario
-                .subject(userPrincipal.getUsername()) 
-                .issuedAt(now)
-                .expiration(expiryDate)
-                // "Claim" (Dato extra): Guardamos los roles dentro del token
-                .claim("roles", roles) 
-                // "Claim" (Dato extra): Guardamos el ID de usuario
-                .claim("userId", userPrincipal.getId()) 
-                // Firma: Lo firmamos con nuestra clave secreta usando el algoritmo HS512
+                .subject(userPrincipal.getUsername())
+                .claim(CLAIM_ROLES, roles)
+                .claim(CLAIM_USER_ID, userPrincipal.getId())
+                .issuedAt(new Date())
+                .expiration(expirationDesdeAhora(accessExpirationMinutes * MILLIS_PER_MINUTE))
                 .signWith(getSignInKey())
                 .compact();
     }
 
     /**
-     * Extrae el email (el "Subject") del token JWT.
-     * @param token El String del token.
-     * @return El email del usuario.
+     * Genera un refresh token JWT que contiene solo el ID del usuario.
+     *
+     * @param userId ID del usuario autenticado
+     * @return refresh token firmado
+     */
+    public String generateRefreshToken(Long userId) {
+        return Jwts.builder()
+                .subject(String.valueOf(userId))
+                .issuedAt(new Date())
+                .expiration(expirationDesdeAhora(refreshExpirationDays * MILLIS_PER_DAY))
+                .signWith(getSignInKey())
+                .compact();
+    }
+
+    // ─── Extracción de datos ───────────────────────────────────────────────────
+
+    /**
+     * Extrae el email (subject) de un access token.
      */
     public String getUsernameFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .verifyWith(getSignInKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-        
-        return claims.getSubject();
+        return parseClaims(token).getSubject();
     }
 
     /**
-     * Valida si un token es auténtico (comprueba la firma y la expiración).
-     * @param token El String del token.
-     * @return true si es válido, false si no.
+     * Extrae el ID de usuario del subject de un refresh token.
+     */
+    public Long getUserIdFromRefreshToken(String refreshToken) {
+        return Long.valueOf(parseClaims(refreshToken).getSubject());
+    }
+
+    // ─── Validación ────────────────────────────────────────────────────────────
+
+    /**
+     * Valida que el token sea auténtico y no haya expirado.
+     *
+     * @param token token JWT a validar
+     * @return {@code true} si es válido, {@code false} en caso contrario
      */
     public boolean validateToken(String token) {
         try {
-            Jwts.parser()
-                    .verifyWith(getSignInKey())
-                    .build()
-                    .parseSignedClaims(token);
+            Jwts.parser().verifyWith(getSignInKey()).build().parseSignedClaims(token);
             return true;
         } catch (MalformedJwtException e) {
-            logger.error("Token JWT malformado: {}", e.getMessage());
+            log.warn("Token JWT malformado: {}", e.getMessage());
         } catch (ExpiredJwtException e) {
-            logger.error("Token JWT ha expirado: {}", e.getMessage());
+            log.warn("Token JWT expirado: {}", e.getMessage());
         } catch (UnsupportedJwtException e) {
-            logger.error("Token JWT no soportado: {}", e.getMessage());
+            log.warn("Token JWT no soportado: {}", e.getMessage());
         } catch (IllegalArgumentException e) {
-            logger.error("Claims de JWT están vacíos: {}", e.getMessage());
-        } catch (Exception e) {
-            logger.error("Validación de JWT falló: {}", e.getMessage());
+            log.warn("Claims de JWT vacíos: {}", e.getMessage());
         }
         return false;
     }
 
     /**
-     * Genera un refresh token (más simple, solo userId y expiración larga).
-     * @param userId El ID del usuario.
-     * @return Un String que es el Refresh Token JWT.
-     */
-    public String generateRefreshToken(Long userId) {
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + (long) jwtRefreshExpirationDays * 24 * 60 * 60 * 1000);
-
-        return Jwts.builder()
-                .subject(String.valueOf(userId)) // Solo el userId como subject
-                .issuedAt(now)
-                .expiration(expiryDate)
-                .signWith(getSignInKey())
-                .compact();
-    }
-
-    /**
-     * Extrae el userId del refresh token.
-     * @param refreshToken El refresh token.
-     * @return El userId del usuario.
-     */
-    public Long getUserIdFromRefreshToken(String refreshToken) {
-        Claims claims = Jwts.parser()
-                .verifyWith(getSignInKey())
-                .build()
-                .parseSignedClaims(refreshToken)
-                .getPayload();
-
-        return Long.valueOf(claims.getSubject());
-    }
-
-    /**
-     * Valida si un refresh token es válido.
-     * @param refreshToken El refresh token.
-     * @return true si es válido, false si no.
+     * Valida que el refresh token sea auténtico y no haya expirado.
      */
     public boolean validateRefreshToken(String refreshToken) {
         try {
-            Jwts.parser()
-                    .verifyWith(getSignInKey())
-                    .build()
-                    .parseSignedClaims(refreshToken);
+            Jwts.parser().verifyWith(getSignInKey()).build().parseSignedClaims(refreshToken);
             return true;
         } catch (Exception e) {
-            logger.error("Refresh token inválido: {}", e.getMessage());
+            log.warn("Refresh token inválido: {}", e.getMessage());
             return false;
         }
     }
 
-    /**
-     * Método privado para obtener la clave secreta (SecretKey) a partir del String.
-     */
+    // ─── Helpers privados ──────────────────────────────────────────────────────
+
+    private Claims parseClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(getSignInKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+    }
+
+    private Date expirationDesdeAhora(long millis) {
+        return new Date(System.currentTimeMillis() + millis);
+    }
+
     private SecretKey getSignInKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(this.jwtSecret);
-        return Keys.hmacShaKeyFor(keyBytes);
+        return Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret));
     }
 }

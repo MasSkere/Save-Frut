@@ -1,43 +1,35 @@
-package com.savefrut.api.controller;
+package com.savefrut.api.client.controller;
 
-import com.savefrut.api.entity.Categoria;
-import com.savefrut.api.repository.CategoriaRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.savefrut.api.common.dto.CategoriaDTO;
+import com.savefrut.api.common.mapper.CategoriaMapper;
+import com.savefrut.api.common.repository.CategoriaRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/categorias")
-@CrossOrigin
+@RequiredArgsConstructor
 public class CategoriaController {
 
-    @Autowired
-    private CategoriaRepository categoriaRepository;
+    private final CategoriaRepository categoriaRepository;
+    private final CategoriaMapper categoriaMapper;
 
-    /**
-     * ENDPOINT: GET /api/categorias
-     * Devuelve la lista de categorías para los botones de filtro.
-     */
     @GetMapping
-    public List<Categoria> getCategorias() {
-        return categoriaRepository.findAll();
+    public List<CategoriaDTO> getCategorias() {
+        return categoriaRepository.findAll().stream()
+                .map(categoriaMapper::toDTO)
+                .collect(Collectors.toList());
     }
 
-    /**
-     * ¡¡NUEVO ENDPOINT!!
-     * ENDPOINT: GET /api/categorias/{id}
-     * Devuelve los detalles de UNA categoría, para el título de la página.
-     */
     @GetMapping("/{id}")
-    public ResponseEntity<Categoria> getCategoriaById(@PathVariable Long id) {
-        Optional<Categoria> categoria = categoriaRepository.findById(id);
-        
-        if (categoria.isPresent()) {
-            return ResponseEntity.ok(categoria.get());
-        } else {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<CategoriaDTO> getCategoriaById(@PathVariable Long id) {
+        return categoriaRepository.findById(id)
+                .map(categoriaMapper::toDTO)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 }

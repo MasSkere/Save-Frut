@@ -1,52 +1,43 @@
-package com.savefrut.api.controller;
+package com.savefrut.api.client.controller;
 
-import com.savefrut.api.dto.ProductoDTO;
-import com.savefrut.api.entity.Vendedor;
-import com.savefrut.api.repository.VendedorRepository;
-import com.savefrut.api.service.ProductoService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.savefrut.api.common.dto.ProductoDTO;
+import com.savefrut.api.common.dto.VendedorDTO;
+import com.savefrut.api.common.mapper.VendedorMapper;
+import com.savefrut.api.common.repository.VendedorRepository;
+import com.savefrut.api.common.service.ProductoService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/vendedores")
-@CrossOrigin
+@RequiredArgsConstructor
 public class VendedorController {
 
-    @Autowired
-    private VendedorRepository vendedorRepository;
+    private final VendedorRepository vendedorRepository;
+    private final ProductoService productoService;
+    private final VendedorMapper vendedorMapper;
 
-    @Autowired
-    private ProductoService productoService;
-
-    /**
-     * ENDPOINT: GET /api/vendedores
-     * Devuelve la lista de "Nuestras Tiendas".
-     */
     @GetMapping
-    public List<Vendedor> getVendedores() {
-        return vendedorRepository.findAll();
+    public List<VendedorDTO> getVendedores() {
+        return vendedorRepository.findAll().stream()
+                .map(vendedorMapper::toDTO)
+                .collect(Collectors.toList());
     }
 
-    /**
-     * ENDPOINT: GET /api/vendedores/{id}/productos
-     * Devuelve la lista de productos para UNA tienda específica.
-     */
+    @GetMapping("/{id}")
+    public ResponseEntity<VendedorDTO> getVendedorById(@PathVariable Long id) {
+        return vendedorRepository.findById(id)
+                .map(vendedorMapper::toDTO)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/{id}/productos")
     public List<ProductoDTO> getProductosPorVendedor(@PathVariable Long id) {
         return productoService.getProductosByVendedor(id);
-    }
-    
-    /**
-     * ENDPOINT: GET /api/vendedores/{id}
-     * Devuelve los datos de UNA tienda (para la página de envío).
-     */
-    @GetMapping("/{id}")
-    public ResponseEntity<Vendedor> getVendedorById(@PathVariable Long id) {
-        return vendedorRepository.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
     }
 }

@@ -1,164 +1,179 @@
-package com.savefrut.api.service;
+package com.savefrut.api.common.service;
 
-import com.savefrut.api.dto.ComprobanteDTO;
-import com.savefrut.api.dto.ItemDTO;
-import com.savefrut.api.dto.OrdenRequestDTO;
-import com.savefrut.api.entity.Cliente;
-import com.savefrut.api.entity.DetalleOrden;
-import com.savefrut.api.entity.Orden;
-import com.savefrut.api.entity.Producto;
-import com.savefrut.api.repository.ClienteRepository;
-import com.savefrut.api.repository.DetalleOrdenRepository;
-import com.savefrut.api.repository.OrdenRepository;
-import com.savefrut.api.repository.ProductoRepository; // ¡Importar!
-import jakarta.persistence.EntityManager;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import com.savefrut.api.common.dto.ComprobanteDTO;
+import com.savefrut.api.common.dto.ItemDTO;
+import com.savefrut.api.common.dto.OrdenRequestDTO;
+import com.savefrut.api.common.entity.Cliente;
+import com.savefrut.api.common.entity.DetalleOrden;
+import com.savefrut.api.common.entity.Orden;
+import com.savefrut.api.common.entity.Producto;
+import com.savefrut.api.common.mapper.OrdenMapper;
+import com.savefrut.api.common.repository.ClienteRepository;
+import com.savefrut.api.common.repository.DetalleOrdenRepository;
+import com.savefrut.api.common.repository.OrdenRepository;
+import com.savefrut.api.common.repository.ProductoRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class OrdenService {
 
-    @Autowired
-    private OrdenRepository ordenRepository;
-    @Autowired
-    private ClienteRepository clienteRepository;
-    @Autowired
-    private ProductoRepository productoRepository;
-    @Autowired
-    private EntityManager entityManager;
-    
-    @Autowired
-    private DetalleOrdenRepository detalleOrdenRepository;
-
-    // --- Constantes de Reglas de Negocio ---
-    private static final BigDecimal TARIFA_VARIEDAD = new BigDecimal("5.00");
+    private static final BigDecimal TARIFA_VARIEDAD       = new BigDecimal("5.00");
     private static final BigDecimal COSTO_ENVIO_DOMICILIO = new BigDecimal("10.00");
-    private static final BigDecimal COSTO_ENVIO_RECOJO = new BigDecimal("0.00");
+    private static final BigDecimal COSTO_ENVIO_RECOJO  = BigDecimal.ZERO;
 
-    public Optional<Orden> findOrdenById(Long id) {
-        return ordenRepository.findById(id);
-    }
+    private final OrdenRepository        ordenRepository;
+    private final ClienteRepository      clienteRepository;
+    private final ProductoRepository     productoRepository;
+    private final DetalleOrdenRepository detalleOrdenRepository;
+    private final OrdenMapper            ordenMapper;
 
-    /**
-     * ¡LÓGICA DE CONFIANZA CERO!
-     * Recalcula el total y crea la orden.
-     */
     @Transactional
     public Orden crearOrden(OrdenRequestDTO request, Long usuarioId) {
-        
-        // 1. Validar Cliente
-        Cliente cliente = clienteRepository.findByUsuarioId(usuarioId)
-                .orElseThrow(() -> new UsernameNotFoundException("Cliente no encontrado"));
+        Cliente cliente        = obtenerClienteValido(usuarioId);
+        Map<Long, Producto> productosReales = obtenerYValidarProductos(request.getItems());
 
-        // 2. Obtener los IDs de los productos del carrito
-        Set<Long> productoIds = request.getItems().stream()
+        validarStock(request.getItems(), productosReales);
+
+        BigDecimal subtotal      = calcularSubtotal(request.getItems());
+        BigDecimal tarifaVariedad = calcularTarifaVariedad(productosReales);
+        BigDecimal costoEnvio   = resolverCostoEnvio(request.getCostoEnvio());
+        BigDecimal total        = subtotal.add(tarifaVariedad).add(costoEnvio);
+
+        Orden ordenGuardada = guardarCabeceraOrden(request, cliente, subtotal, costoEnvio, tarifaVariedad, total);
+        guardarDetallesYActualizarStock(ordenGuardada.getId(), request.getItems(), productosReales);
+
+        log.info("Orden {} creada para el cliente {}", ordenGuardada.getId(), usuarioId);
+        return ordenGuardada;
+    }
+
+    @Transactional(readOnly = true)
+    public ComprobanteDTO getDatosComprobante(Long ordenId, Long usuarioId) {
+        Orden   orden   = obtenerOrdenExistente(ordenId);
+        Cliente cliente = obtenerClienteValido(usuarioId);
+
+        verificarPertenenciaOrden(orden, cliente);
+
+        return ordenMapper.toComprobanteDTO(
+                orden,
+                cliente,
+                detalleOrdenRepository.findByOrdenId(ordenId)
+        );
+    }
+
+    private Cliente obtenerClienteValido(Long usuarioId) {
+        return clienteRepository.findByUsuarioId(usuarioId)
+                .orElseThrow(() -> new UsernameNotFoundException(
+                        "Cliente no encontrado para el usuario: " + usuarioId));
+    }
+
+    private Orden obtenerOrdenExistente(Long ordenId) {
+        return ordenRepository.findById(ordenId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Orden no encontrada: " + ordenId));
+    }
+
+    private Map<Long, Producto> obtenerYValidarProductos(List<ItemDTO> items) {
+        Set<Long> ids = items.stream()
                 .map(ItemDTO::getProductoId)
                 .collect(Collectors.toSet());
 
-        // 3. Traer los productos REALES de la BD (para precios y stock)
-        Map<Long, Producto> productosReales = productoRepository.findAllById(productoIds).stream()
+        Map<Long, Producto> productosReales = StreamSupport
+                .stream(productoRepository.findAllById(ids).spliterator(), false)
                 .collect(Collectors.toMap(Producto::getId, p -> p));
 
-        BigDecimal subtotalReal = BigDecimal.ZERO;
-        
-        // 4. Recalcular Subtotal y Validar Stock
-        for (ItemDTO itemCliente : request.getItems()) {
-            Producto productoReal = productosReales.get(itemCliente.getProductoId());
-
-            if (productoReal == null) {
-                throw new RuntimeException("Producto no encontrado: " + itemCliente.getProductoId());
+        ids.forEach(id -> {
+            if (!productosReales.containsKey(id)) {
+                throw new IllegalArgumentException("Producto no encontrado: " + id);
             }
-            if (productoReal.getStock() < itemCliente.getCantidad()) {
-                throw new RuntimeException("Stock insuficiente para: " + productoReal.getNombre());
-            }
-            
-            // ¡CONFIANZA CERO! Ignoramos el precio del cliente.
-            // (El SP de producto nos da el precio con descuento)
-            // (Necesitamos una forma de obtener el precio... ¡Modificación!)
-            
-            // --- ¡Modificación de lógica! ---
-            // Los SPs son para LEER. Para el checkout, debemos recalcular aquí.
-            // Por ahora, asumiremos que el precio enviado por el cliente ES el
-            // precio con descuento (que el cliente leyó del SP).
-            // En una versión 3.0, recalcularíamos el descuento aquí.
-            
-            subtotalReal = subtotalReal.add(
-                itemCliente.getPrecioUnitario().multiply(BigDecimal.valueOf(itemCliente.getCantidad()))
-            );
-        }
-        
-        // 5. Calcular Tarifa por Variedad (Tu regla de negocio)
-        Set<Long> vendedorIds = productosReales.values().stream()
-                .map(p -> p.getVendedor().getVendedorId())
-                .collect(Collectors.toSet());
-        
-        BigDecimal tarifaVariedadReal = (vendedorIds.size() > 1) ? TARIFA_VARIEDAD : BigDecimal.ZERO;
+        });
 
-        // 6. Validar Costo de Envío
-        BigDecimal costoEnvioReal = request.getCostoEnvio().equals(COSTO_ENVIO_DOMICILIO) ? COSTO_ENVIO_DOMICILIO : COSTO_ENVIO_RECOJO;
-        
-        // 7. Calcular Total REAL
-        BigDecimal totalReal = subtotalReal.add(tarifaVariedadReal).add(costoEnvioReal);
-
-        // 8. Crear y Guardar la Orden (Usando JPA)
-        Orden nuevaOrden = new Orden();
-        nuevaOrden.setCliente(cliente);
-        nuevaOrden.setFechaOrden(Instant.now());
-        nuevaOrden.setEstadoOrden(request.getMetodoPago());
-        
-        nuevaOrden.setSubtotal(subtotalReal);
-        nuevaOrden.setCostoEnvio(costoEnvioReal);
-        nuevaOrden.setTarifaVariedad(tarifaVariedadReal);
-        nuevaOrden.setTotal(totalReal);
-        
-        nuevaOrden.setDireccionEnvio(request.getDireccionEnvio());
-        nuevaOrden.setDistritoEnvio(request.getDistritoNombre());
-        
-        Orden ordenGuardada = ordenRepository.save(nuevaOrden); // Guarda la cabecera
-
-        // 9. Guardar el Detalle y Actualizar Stock (Usando el SP)
-        for (ItemDTO item : request.getItems()) {
-            entityManager.createNativeQuery("EXEC sp_insertar_detalle_y_stock ?, ?, ?, ?")
-                .setParameter(1, ordenGuardada.getId())
-                .setParameter(2, item.getProductoId())
-                .setParameter(3, item.getCantidad())
-                .setParameter(4, item.getPrecioUnitario()) // Precio con descuento
-                .executeUpdate();
-        }
-
-        return ordenGuardada;
+        return productosReales;
     }
-    
-    @Transactional(readOnly = true)
-    public ComprobanteDTO getDatosComprobante(Long ordenId, Long usuarioId) {
-        
-        // 1. Buscamos la orden
-        Orden orden = ordenRepository.findById(ordenId)
-            .orElseThrow(() -> new RuntimeException("Orden no encontrada: " + ordenId));
-        
-        // 2. Buscamos al cliente
-        Cliente cliente = clienteRepository.findByUsuarioId(usuarioId)
-            .orElseThrow(() -> new RuntimeException("Cliente no encontrado: " + usuarioId));
 
-        // 3. Verificamos que la orden PERTENEZCA al cliente (Seguridad)
+    private void validarStock(List<ItemDTO> items, Map<Long, Producto> productosReales) {
+        items.forEach(item -> {
+            Producto producto = productosReales.get(item.getProductoId());
+            if (producto.getStock() < item.getCantidad()) {
+                throw new IllegalStateException(
+                        "Stock insuficiente para: " + producto.getNombre());
+            }
+        });
+    }
+
+    private void verificarPertenenciaOrden(Orden orden, Cliente cliente) {
         if (!orden.getCliente().getClienteId().equals(cliente.getClienteId())) {
-            throw new SecurityException("Acceso denegado: Esta orden no le pertenece.");
+            throw new SecurityException("Acceso denegado: esta orden no le pertenece.");
         }
+    }
 
-        // 4. Buscamos los detalles de esa orden
-        List<DetalleOrden> detalles = detalleOrdenRepository.findByOrdenId(ordenId);
-        
-        // 5. Creamos y devolvemos el DTO
-        return new ComprobanteDTO(orden, cliente, detalles);
+    private BigDecimal calcularSubtotal(List<ItemDTO> items) {
+        return items.stream()
+                .map(item -> item.getPrecioUnitario()
+                        .multiply(BigDecimal.valueOf(item.getCantidad())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal calcularTarifaVariedad(Map<Long, Producto> productosReales) {
+        long cantidadVendedores = productosReales.values().stream()
+                .map(p -> p.getVendedor().getVendedorId())
+                .distinct()
+                .count();
+
+        return cantidadVendedores > 1 ? TARIFA_VARIEDAD : BigDecimal.ZERO;
+    }
+
+    private BigDecimal resolverCostoEnvio(Double costoEnvioCliente) {
+        BigDecimal costoEnvio = BigDecimal.valueOf(costoEnvioCliente);
+        return COSTO_ENVIO_DOMICILIO.compareTo(costoEnvio) == 0
+                ? COSTO_ENVIO_DOMICILIO
+                : COSTO_ENVIO_RECOJO;
+    }
+
+    private Orden guardarCabeceraOrden(OrdenRequestDTO request, Cliente cliente,
+                                     BigDecimal subtotal, BigDecimal costoEnvio,
+                                     BigDecimal tarifaVariedad, BigDecimal total) {
+        Orden orden = new Orden();
+        orden.setCliente(cliente);
+        orden.setFechaOrden(LocalDateTime.now());
+        orden.setEstadoOrden(request.getMetodoPago());
+        orden.setSubtotal(subtotal);
+        orden.setCostoEnvio(costoEnvio);
+        orden.setTarifaVariedad(tarifaVariedad);
+        orden.setTotal(total);
+        orden.setDireccionEnvio(request.getDireccionEnvio());
+        orden.setDistritoEnvio(request.getDistritoNombre());
+        return ordenRepository.save(orden);
+    }
+
+    private void guardarDetallesYActualizarStock(Long ordenId, List<ItemDTO> items, Map<Long, Producto> productosReales) {
+        items.forEach(item -> {
+            Producto producto = productosReales.get(item.getProductoId());
+
+            DetalleOrden detalle = new DetalleOrden();
+            detalle.setOrden(ordenRepository.findById(ordenId).orElseThrow());
+            detalle.setProducto(producto);
+            detalle.setCantidad(item.getCantidad());
+            detalle.setPrecioUnitario(item.getPrecioUnitario());
+            detalleOrdenRepository.save(detalle);
+
+            producto.setStock(producto.getStock() - item.getCantidad());
+            productoRepository.save(producto);
+
+        });
     }
 }

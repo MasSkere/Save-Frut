@@ -1,97 +1,129 @@
 package com.savefrut.api.common.security.jwt;
 
-import com.savefrut.api.common.security.service.UserDetailsServiceImpl;
+import com.savefrut.api.common.security.exception.InvalidJwtAuthenticationException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Optional;
 
 /**
- * Este es el "guardia de seguridad" de nuestra API.
- * Se ejecuta UNA VEZ por cada petición para verificar el token JWT.
- * Ahora lee tokens tanto de headers como de cookies.
+ * Filtro de seguridad JWT que intercepta cada petición HTTP exactamente una vez.
+ *
+ * <p>Responsabilidades:
+ * <ul>
+ *   <li>Extraer el token JWT del header Authorization o de la cookie.</li>
+ *   <li>Validar el token y autenticar al usuario en el SecurityContext.</li>
+ * </ul>
+ *
+ * <p>Prioridad de extracción: Header {@code Authorization: Bearer <token>} > Cookie {@code token}.
  */
+@Slf4j
+@Component
+@RequiredArgsConstructor
 public class JwtTokenFilter extends OncePerRequestFilter {
 
-    private static final Logger logger = LoggerFactory.getLogger(JwtTokenFilter.class);
+    // ─── Constantes ────────────────────────────────────────────────────────────
 
-    @Autowired
-    private JwtTokenProvider jwtTokenProvider;
+    private static final String AUTHORIZATION_HEADER = "Authorization";
+    private static final String BEARER_PREFIX        = "Bearer ";
+    private static final int    BEARER_PREFIX_LENGTH = BEARER_PREFIX.length();
+    private static final String JWT_COOKIE_NAME      = "token";
 
-    @Autowired
-    private UserDetailsServiceImpl userDetailsService;
+    // ─── Dependencias (inyección por constructor via @RequiredArgsConstructor) ──
 
-    /**
-     * El método principal del filtro. Aquí ocurre toda la magia.
-     */
+    private final JwtTokenProvider   jwtTokenProvider;
+    private final UserDetailsService  userDetailsService;   // interfaz, no la implementación
+
+    // ─── Lógica principal ──────────────────────────────────────────────────────
+
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
+    protected void doFilterInternal(HttpServletRequest  request,
                                     HttpServletResponse response,
-                                    FilterChain filterChain) throws ServletException, IOException {
-        try {
-            // 1. Extraemos el token del encabezado "Authorization" o de la cookie "token"
-            String jwt = parseJwt(request);
+                                    FilterChain         filterChain) throws ServletException, IOException {
 
-            // 2. Si hay un token y es válido...
-            if (jwt != null && jwtTokenProvider.validateToken(jwt)) {
+        extractToken(request)
+                .filter(jwtTokenProvider::validateToken)
+                .ifPresent(token -> authenticateUser(token, request));
 
-                // 3. ...obtenemos el email (username) del token
-                String username = jwtTokenProvider.getUsernameFromToken(jwt);
-
-                // 4. ...cargamos los detalles del usuario desde la base de datos
-                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-
-                // 5. ...creamos un objeto de autenticación
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.getAuthorities());
-
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                // 6. ...y lo establecemos en el contexto de seguridad de Spring.
-                // ¡A partir de aquí, el usuario está "autenticado" para esta petición!
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-            }
-        } catch (Exception e) {
-            logger.error("No se pudo establecer la autenticación del usuario: {}", e.getMessage());
-        }
-
-        // 7. Continuamos con el resto de los filtros de la cadena.
         filterChain.doFilter(request, response);
     }
 
+    // ─── Extracción del token ──────────────────────────────────────────────────
+
     /**
-     * Método auxiliar para extraer el token del encabezado "Authorization" o de la cookie "token".
-     * Prioridad: Header > Cookie
+     * Intenta obtener el token JWT del header o de la cookie.
+     *
+     * @param request petición HTTP entrante
+     * @return el token si existe, {@link Optional#empty()} en caso contrario
      */
-    private String parseJwt(HttpServletRequest request) {
-        // Primero intentar desde header
-        String headerAuth = request.getHeader("Authorization");
-        if (StringUtils.hasText(headerAuth) && headerAuth.startsWith("Bearer ")) {
-            return headerAuth.substring(7);
-        }
+    private Optional<String> extractToken(HttpServletRequest request) {
+        return extractFromHeader(request)
+                .or(() -> extractFromCookie(request));
+    }
 
-        // Si no hay en header, intentar desde cookie
-        if (request.getCookies() != null) {
-            return Arrays.stream(request.getCookies())
-                    .filter(cookie -> "token".equals(cookie.getName()))
-                    .findFirst()
-                    .map(Cookie::getValue)
-                    .orElse(null);
-        }
+    private Optional<String> extractFromHeader(HttpServletRequest request) {
+        String headerValue = request.getHeader(AUTHORIZATION_HEADER);
 
-        return null;
+        if (StringUtils.hasText(headerValue) && headerValue.startsWith(BEARER_PREFIX)) {
+            return Optional.of(headerValue.substring(BEARER_PREFIX_LENGTH));
+        }
+        return Optional.empty();
+    }
+
+    private Optional<String> extractFromCookie(HttpServletRequest request) {
+        if (request.getCookies() == null) {
+            return Optional.empty();
+        }
+        return Arrays.stream(request.getCookies())
+                .filter(cookie -> JWT_COOKIE_NAME.equals(cookie.getName()))
+                .findFirst()
+                .map(Cookie::getValue);
+    }
+
+    // ─── Autenticación ─────────────────────────────────────────────────────────
+
+    /**
+     * Carga el usuario desde el token y lo registra en el {@link SecurityContextHolder}.
+     *
+     * @param token   token JWT ya validado
+     * @param request petición HTTP actual
+     * @throws InvalidJwtAuthenticationException si el usuario no puede ser cargado
+     */
+    private void authenticateUser(String token, HttpServletRequest request) {
+        try {
+            String      username    = jwtTokenProvider.getUsernameFromToken(token);
+            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities());
+
+            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+
+            log.debug("Usuario '{}' autenticado correctamente.", username);
+
+        } catch (Exception ex) {
+            log.warn("No se pudo autenticar al usuario con el token provisto: {}", ex.getMessage());
+            // No relanzamos: simplemente el SecurityContext queda vacío
+            // y el request continuará sin autenticación (denegado por los filtros de autorización).
+        }
     }
 }

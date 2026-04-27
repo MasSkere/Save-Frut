@@ -1,15 +1,17 @@
-package com.savefrut.api.controller;
+package com.savefrut.api.client.controller;
 
 import com.savefrut.api.common.dto.auth.LoginRequest;
 import com.savefrut.api.common.dto.auth.LoginResponse;
 import com.savefrut.api.common.security.UserDetailsImpl;
 import com.savefrut.api.common.security.jwt.JwtTokenProvider;
-import com.savefrut.api.common.service.RefreshTokenService;
 import com.savefrut.api.common.security.service.UserDetailsServiceImpl;
-import jakarta.servlet.http.Cookie;
+import com.savefrut.api.common.service.RefreshTokenService;
+import com.savefrut.api.common.util.CookieUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -21,158 +23,106 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Controlador de autenticación — login, refresh y logout.
+ *
+ * <p>Usa cookies HttpOnly para el refresh token y devuelve
+ * el access token JWT en el cuerpo de la respuesta.
+ */
+@Slf4j
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin // Permite que el cliente web (en otro dominio) llame a esta API
+@RequiredArgsConstructor
 public class AuthController {
 
-    @Autowired
-    private AuthenticationManager authenticationManager;
+    // ─── Constantes ────────────────────────────────────────────────────────────
 
-    @Autowired
-    private JwtTokenProvider jwtTokenProvider;
+    private static final String REFRESH_COOKIE_NAME = "refresh_token";
+    private static final String TOKEN_COOKIE_NAME   = "token";
 
-    @Autowired
-    private RefreshTokenService refreshTokenService;
+    // ─── Dependencias ──────────────────────────────────────────────────────────
 
-    @Autowired
-    private UserDetailsServiceImpl userDetailsService;
+    private final AuthenticationManager  authenticationManager;
+    private final JwtTokenProvider       jwtTokenProvider;
+    private final RefreshTokenService    refreshTokenService;
+    private final UserDetailsServiceImpl userDetailsService;
 
-    /**
-     * Este es el endpoint que el JavaScript del cliente llamará.
-     * Recibe el JSON (LoginRequest) y devuelve el JSON (LoginResponse).
-     */
+    // ─── Endpoints ─────────────────────────────────────────────────────────────
+
     @PostMapping("/login")
-    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest, HttpServletResponse response) {
-
-        // 1. Spring Security autentica al usuario usando el email y password
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request,
+                                               HttpServletResponse response) {
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword()));
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
-        // 2. Si es exitoso, establecemos la autenticación en el contexto
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        // 3. Obtenemos el "UserDetails" que creamos (para sacar el ID, email, roles)
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        UserDetailsImpl userDetails  = (UserDetailsImpl) authentication.getPrincipal();
+        String          accessToken  = jwtTokenProvider.generateToken(authentication);
+        String          refreshToken = jwtTokenProvider.generateRefreshToken(userDetails.getId());
 
-        // 4. Generamos el "pase VIP" (Token JWT)
-        String jwt = jwtTokenProvider.generateToken(authentication);
-
-        // 5. Generamos el refresh token
-        String refreshToken = jwtTokenProvider.generateRefreshToken(userDetails.getId());
-
-        // 6. Almacenamos el refresh token en Redis
         refreshTokenService.storeRefreshToken(userDetails.getId(), refreshToken);
+        CookieUtils.agregarCookieSegura(response, REFRESH_COOKIE_NAME, refreshToken);
 
-        // 7. Obtenemos la lista de roles (ej. "ROLE_CLIENTE")
-        List<String> roles = userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toList());
-
-        // 8. Configuramos la cookie httpOnly con el refresh token
-        Cookie refreshCookie = new Cookie("refresh_token", refreshToken);
-        refreshCookie.setHttpOnly(true);
-        refreshCookie.setSecure(true); // Solo se enviará por HTTPS
-        refreshCookie.setPath("/"); // Disponible en toda la aplicación
-        refreshCookie.setMaxAge(7 * 24 * 60 * 60); // 7 días en segundos
-        response.addCookie(refreshCookie);
-
-        // 9. Respondemos con el JSON que contiene el access token y los datos del usuario
-        return ResponseEntity.ok(new LoginResponse(
-                jwt,
-                userDetails.getId(),
-                userDetails.getUsername(), // getUsername() devuelve el email, como lo configuramos
-                roles
-        ));
+        log.info("Login exitoso para usuario {}", userDetails.getId());
+        return ResponseEntity.ok(buildLoginResponse(accessToken, userDetails));
     }
 
-    /**
-     * Endpoint para refrescar el access token usando el refresh token de la cookie.
-     * El refresh token se lee automáticamente de la cookie httpOnly.
-     */
     @PostMapping("/refresh")
-    public ResponseEntity<?> refreshToken(@CookieValue(value = "refresh_token", required = false) String refreshTokenFromCookie,
-                                         HttpServletResponse response) {
+    public ResponseEntity<?> refresh(
+            @CookieValue(value = REFRESH_COOKIE_NAME, required = false) String refreshToken,
+            HttpServletResponse response) {
 
-        if (refreshTokenFromCookie == null || refreshTokenFromCookie.isEmpty()) {
-            return ResponseEntity.badRequest().body("Refresh token no encontrado en cookie");
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return ResponseEntity.badRequest().body("Refresh token no encontrado en cookie.");
         }
 
-        // Validar y rotar el refresh token
-        String newRefreshToken = refreshTokenService.validateAndRotateRefreshToken(refreshTokenFromCookie);
-
-        if (newRefreshToken == null) {
-            return ResponseEntity.status(401).body("Refresh token inválido o expirado");
+        String nuevoRefreshToken = refreshTokenService.validateAndRotateRefreshToken(refreshToken);
+        if (nuevoRefreshToken == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Refresh token inválido o expirado.");
         }
 
-        // Extraer userId del nuevo refresh token
-        Long userId = jwtTokenProvider.getUserIdFromRefreshToken(newRefreshToken);
-
-        // Cargar detalles del usuario
+        Long            userId      = jwtTokenProvider.getUserIdFromRefreshToken(nuevoRefreshToken);
         UserDetailsImpl userDetails = (UserDetailsImpl) userDetailsService.loadUserById(userId);
 
-        // Crear Authentication object
         Authentication authentication = new UsernamePasswordAuthenticationToken(
-            userDetails, null, userDetails.getAuthorities());
+                userDetails, null, userDetails.getAuthorities());
 
-        // Generar nuevo access token
-        String newAccessToken = jwtTokenProvider.generateToken(authentication);
+        String nuevoAccessToken = jwtTokenProvider.generateToken(authentication);
+        CookieUtils.agregarCookieSegura(response, REFRESH_COOKIE_NAME, nuevoRefreshToken);
 
-        // Actualizar cookie del refresh token
-        Cookie refreshCookie = new Cookie("refresh_token", newRefreshToken);
-        refreshCookie.setHttpOnly(true);
-        refreshCookie.setSecure(true);
-        refreshCookie.setPath("/");
-        refreshCookie.setMaxAge(7 * 24 * 60 * 60); // 7 días
-        response.addCookie(refreshCookie);
-
-        // Obtener roles
-        List<String> roles = userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toList());
-
-        // Responder con nuevo access token
-        return ResponseEntity.ok(new LoginResponse(
-                newAccessToken,
-                userDetails.getId(),
-                userDetails.getUsername(),
-                roles
-        ));
+        return ResponseEntity.ok(buildLoginResponse(nuevoAccessToken, userDetails));
     }
 
-    /**
-     * Endpoint para logout (revocar refresh token).
-     */
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(@CookieValue(value = "refresh_token", required = false) String refreshTokenFromCookie,
-                                   HttpServletResponse response) {
+    public ResponseEntity<String> logout(
+            @CookieValue(value = REFRESH_COOKIE_NAME, required = false) String refreshToken,
+            HttpServletResponse response) {
 
-        if (refreshTokenFromCookie != null && !refreshTokenFromCookie.isEmpty()) {
+        if (refreshToken != null && !refreshToken.isBlank()) {
             try {
-                Long userId = jwtTokenProvider.getUserIdFromRefreshToken(refreshTokenFromCookie);
+                Long userId = jwtTokenProvider.getUserIdFromRefreshToken(refreshToken);
                 refreshTokenService.revokeRefreshToken(userId);
+                log.info("Refresh token revocado para usuario {}", userId);
             } catch (Exception e) {
-                // Ignorar errores al revocar
+                log.warn("Error al revocar refresh token durante logout: {}", e.getMessage());
             }
         }
 
-        // Limpiar cookies
-        Cookie refreshCookie = new Cookie("refresh_token", "");
-        refreshCookie.setHttpOnly(true);
-        refreshCookie.setSecure(true);
-        refreshCookie.setPath("/");
-        refreshCookie.setMaxAge(0); // Expirar inmediatamente
-        response.addCookie(refreshCookie);
+        CookieUtils.expirarCookie(response, REFRESH_COOKIE_NAME);
+        CookieUtils.expirarCookie(response, TOKEN_COOKIE_NAME);
 
-        Cookie tokenCookie = new Cookie("token", "");
-        tokenCookie.setHttpOnly(true);
-        tokenCookie.setSecure(true);
-        tokenCookie.setPath("/");
-        tokenCookie.setMaxAge(0);
-        response.addCookie(tokenCookie);
-
-        return ResponseEntity.ok("Logout exitoso");
+        return ResponseEntity.ok("Logout exitoso.");
     }
 
-    // Aquí iría el endpoint de @PostMapping("/registro") si quisiéramos
+    // ─── Helper interno ────────────────────────────────────────────────────────
+
+    private LoginResponse buildLoginResponse(String accessToken, UserDetailsImpl userDetails) {
+        List<String> roles = userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toList());
+
+        return new LoginResponse(accessToken, userDetails.getId(), userDetails.getUsername(), roles);
+    }
 }

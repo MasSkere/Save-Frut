@@ -35,4 +35,16 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         // Convertimos nuestro Usuario (JPA) a un UserDetails (Spring Security)
         return new UserDetailsImpl(usuario);
     }
+
+    /**
+     * Método adicional para cargar usuario por ID.
+     * Útil para operaciones que requieren el ID del usuario.
+     */
+    @Transactional
+    public UserDetails loadUserById(Long userId) {
+        Usuario usuario = usuarioRepository.findById(userId)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado con el ID: " + userId));
+
+        return new UserDetailsImpl(usuario);
+    }
 }
