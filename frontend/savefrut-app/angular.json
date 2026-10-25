@@ -25,6 +25,8 @@
               }
             ],
             "styles": [
+              "node_modules/@fontsource-variable/figtree/index.css",
+              "node_modules/@fontsource-variable/bricolage-grotesque/index.css",
               "src/styles.css"
             ]
           },

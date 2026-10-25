@@ -307,6 +307,23 @@ services:
     restart: on-failure
     logging: *logging
 
+  # Túnel HTTPS público hacia el gateway, para el frontend publicado en Vercel.
+  # Sin NGROK_AUTHTOKEN / NGROK_DOMAIN en .env no arranca y el resto funciona igual en local.
+  ngrok:
+    container_name: savefrut-ngrok
+    image: ngrok/ngrok:latest
+    command: http --url=${NGROK_DOMAIN:-} api-gateway:8080
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:-}
+    ports:
+      - "4040:4040"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    networks: [savefrut-net]
+    restart: on-failure:3
+    logging: *logging
+
   # ───────────────────────────────────────────────────────────────────
   # 6) FRONTEND (Angular servido por Nginx)
   # ───────────────────────────────────────────────────────────────────

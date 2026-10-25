@@ -74,7 +74,7 @@ public class PagoService {
         }
 
         Map<String, Object> respuesta = mercadoPagoGateway.crearPreferencia(
-                idempotencyKey, construirPreferencia(orden, cliente, detalleOrdenRepository.findByOrdenId(ordenId)));
+                idempotencyKey, construirPreferencia(orden, detalleOrdenRepository.findByOrdenId(ordenId)));
 
         // Con credenciales de prueba (TEST-...) el pago debe hacerse en el checkout sandbox
         String sandboxUrl = (String) respuesta.get("sandbox_init_point");
@@ -208,7 +208,7 @@ public class PagoService {
         }
     }
 
-    private Map<String, Object> construirPreferencia(Orden orden, ClienteResumenDTO cliente, List<DetalleOrden> detalles) {
+    private Map<String, Object> construirPreferencia(Orden orden, List<DetalleOrden> detalles) {
         List<Map<String, Object>> items = new java.util.ArrayList<>(detalles.stream()
                 .map(d -> item(d.getNombreProducto(), d.getCantidad(), d.getPrecioUnitario().doubleValue()))
                 .toList());
@@ -223,10 +223,6 @@ public class PagoService {
         Map<String, Object> preferencia = new HashMap<>();
         preferencia.put("items", items);
         preferencia.put("external_reference", referenciaExterna(orden));
-        // En sandbox el comprador debe ser un usuario de prueba de MP; enviar el email real provoca rechazos
-        if (!accessToken.startsWith("TEST-") && cliente.email() != null) {
-            preferencia.put("payer", Map.of("email", cliente.email()));
-        }
         preferencia.put("back_urls", Map.of("success", retorno, "failure", retorno, "pending", retorno));
         // MP solo acepta auto_return con URLs https públicas; en localhost el frontend espera el pago por polling
         if (frontendUrl.startsWith("https://")) {

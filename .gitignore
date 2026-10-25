@@ -65,3 +65,7 @@ node_modules/
 .agents/
 .claude/
 skills-lock.json
+.impeccable/
+/DESIGN.md
+/PRODUCT.md
+/Especificaciones_Tecnicas_SaveFrut.md

@@ -1,38 +1,33 @@
 @let p = producto();
-<article class="bg-surface-card rounded-card shadow-soft overflow-hidden hover:shadow-lg transition-shadow duration-300 flex flex-col">
-  <a [routerLink]="['/productos', p.id]" class="block">
-    <div class="relative aspect-square overflow-hidden bg-gray-100">
-      <img [src]="p.imagenUrl" [alt]="p.nombre" class="w-full h-full object-cover" loading="lazy" />
-      <span class="absolute top-2 right-2 bg-brand-500 text-white text-xs font-bold px-2 py-1 rounded-button">
-        -{{ descuento() }}%
-      </span>
-      <span class="absolute top-2 left-2 text-xs font-semibold px-2 py-1 rounded-button" [class]="claseUrgencia()">
-        {{ etiqueta() }}
-      </span>
-    </div>
-    <div class="p-3">
-      <span class="text-xs text-brand-400 uppercase tracking-wide">{{ p.nombreCategoria }}</span>
-      <h2 class="text-sm font-medium text-gray-900 mt-1 line-clamp-2">{{ p.nombre }}</h2>
-      <div class="mt-2 flex items-baseline gap-2">
-        <span class="text-lg font-bold text-brand-600">{{ p.precioDescuento | currencyPEN }}</span>
-        <span class="text-xs text-gray-400 line-through">{{ p.precioNormal | currencyPEN }}</span>
+<article class="relative bg-surface-card rounded-card shadow-soft overflow-hidden flex flex-col tarjeta has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-brand-500">
+  <div class="relative aspect-[4/3] sm:aspect-square">
+    <app-product-image class="absolute inset-0" [url]="p.imagenUrl" [nombre]="p.nombre" [categoria]="p.nombreCategoria" [decorativo]="true" />
+    <span class="absolute top-2 left-2 text-xs font-semibold px-2 py-1 rounded-button" [class]="claseUrgencia()">
+      {{ etiqueta() }}
+    </span>
+    <span class="absolute top-2 right-2 bg-brand-500 text-white text-xs font-bold px-2 py-1 rounded-button cifra">
+      -{{ descuento() }}%
+    </span>
+  </div>
+
+  <div class="flex flex-col flex-1 p-3 sm:p-4">
+    <h3 class="text-[0.95rem] font-semibold text-gray-900 leading-snug line-clamp-2">
+      <a [routerLink]="['/productos', p.id]" class="after:absolute after:inset-0 focus-visible:outline-none">{{ p.nombre }}</a>
+    </h3>
+    <p class="mt-1 text-xs text-gray-600 truncate">{{ p.nombreVendedor }}</p>
+
+    <div class="mt-auto pt-3 flex items-end justify-between gap-2">
+      <div class="min-w-0">
+        <p class="font-display text-xl font-bold text-brand-600 leading-none cifra">{{ p.precioDescuento | currencyPEN }}</p>
+        <p class="mt-1 text-xs text-gray-500 cifra">
+          <span class="line-through">{{ p.precioNormal | currencyPEN }}</span> · {{ p.nombreMedicion }}
+        </p>
       </div>
-      <div class="mt-1 text-xs text-gray-500 flex justify-between gap-2">
-        <span>por {{ p.nombreMedicion }}</span>
-        <span class="truncate">{{ p.nombreVendedor }}</span>
-      </div>
+      <button type="button" (click)="agregar()" class="btn-quiet relative z-10 shrink-0"
+              [attr.aria-label]="'Agregar ' + p.nombre + ' al carrito'">
+        <app-icon nombre="plus" [tamano]="16" [trazo]="2.25" />
+        <span class="hidden sm:inline">Agregar</span>
+      </button>
     </div>
-  </a>
-  <div class="px-3 pb-3 mt-auto">
-    <button
-      type="button"
-      (click)="agregar()"
-      class="w-full flex items-center justify-center gap-1 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-button transition-colors text-sm font-medium"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-      </svg>
-      Agregar
-    </button>
   </div>
 </article>

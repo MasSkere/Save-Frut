@@ -1,15 +1,20 @@
-<div class="max-w-7xl mx-auto px-4 py-8">
-  <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+<div class="max-w-7xl mx-auto px-4 pt-8 pb-4">
+  <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
     <div>
-      <h1 class="text-2xl font-bold text-brand-700">Catálogo</h1>
-      <p class="text-sm text-gray-500">
-        {{ filtrados().length }} productos
-        @if (termino()) { para "<strong>{{ termino() }}</strong>" }
+      <h1 class="text-4xl font-bold text-brand-700">Catálogo</h1>
+      <p class="mt-1 text-gray-600" aria-live="polite">
+        @if (!loading()) {
+          <span class="cifra">{{ filtrados().length }}</span> {{ filtrados().length === 1 ? 'fruta por rescatar' : 'frutas por rescatar' }}
+          @if (termino()) {
+            para «<strong class="font-semibold text-gray-900">{{ termino() }}</strong>»
+            <button type="button" (click)="limpiarBusqueda()" class="ml-1 text-sm font-semibold text-brand-600 hover:underline">Quitar búsqueda</button>
+          }
+        }
       </p>
     </div>
-    <label class="text-sm text-gray-600 flex items-center gap-2">
+    <label class="text-sm text-gray-700 flex items-center gap-2 shrink-0">
       Ordenar por
-      <select class="input-sf !w-auto" [ngModel]="orden()" (ngModelChange)="orden.set($event)">
+      <select class="input-sf !w-auto !py-2 !pr-8" [ngModel]="orden()" (ngModelChange)="orden.set($event)">
         <option value="urgencia">Vence primero</option>
         <option value="descuento">Mayor descuento</option>
         <option value="precio">Menor precio</option>
@@ -17,32 +22,43 @@
     </label>
   </div>
 
-  <div class="flex gap-2 overflow-x-auto pb-3 mb-4">
-    <button type="button" (click)="seleccionarCategoria(null)"
-            class="px-4 py-1.5 rounded-full text-sm border whitespace-nowrap"
-            [class]="categoriaId() === null ? 'bg-brand-500 text-white border-brand-500' : 'bg-white border-surface-border text-gray-700'">
+  <div class="mt-6 flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]" role="group" aria-label="Filtrar por categoría">
+    <button type="button" (click)="seleccionarCategoria(null)" [attr.aria-pressed]="categoriaId() === null"
+            class="chip" [class.chip-activo]="categoriaId() === null">
       Todas
     </button>
     @for (c of categorias(); track c.id) {
-      <button type="button" (click)="seleccionarCategoria(c.id)"
-              class="px-4 py-1.5 rounded-full text-sm border whitespace-nowrap"
-              [class]="categoriaId() === c.id ? 'bg-brand-500 text-white border-brand-500' : 'bg-white border-surface-border text-gray-700'">
+      <button type="button" (click)="seleccionarCategoria(c.id)" [attr.aria-pressed]="categoriaId() === c.id"
+              class="chip" [class.chip-activo]="categoriaId() === c.id">
+        <span class="w-3.5 h-3.5 rounded-full ring-1 ring-black/5" [class]="tinteCategoria(c.nombre)" aria-hidden="true"></span>
         {{ c.nombre }}
       </button>
     }
   </div>
 
-  @if (loading()) {
-    <div class="flex justify-center py-20"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div></div>
-  } @else if (error()) {
-    <div class="bg-red-50 border border-red-200 rounded-card p-4 text-center text-red-600">{{ error() }}</div>
-  } @else if (filtrados().length === 0) {
-    <p class="text-center text-gray-500 py-16">No encontramos productos con esos filtros.</p>
-  } @else {
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-      @for (producto of filtrados(); track producto.id) {
-        <app-product-card [producto]="producto" />
-      }
-    </div>
-  }
+  <div class="mt-6">
+    @if (loading()) {
+      <div class="flex justify-center py-24" role="status">
+        <div class="animate-spin rounded-full h-10 w-10 border-2 border-brand-100 border-t-brand-500" aria-hidden="true"></div>
+        <span class="sr-only">Cargando catálogo…</span>
+      </div>
+    } @else if (error()) {
+      <div class="bg-red-50 border border-red-200 rounded-card p-6 text-center text-red-700" role="alert">
+        <p>{{ error() }}</p>
+        <button type="button" (click)="cargar()" class="btn-secondary mt-4">Intentar de nuevo</button>
+      </div>
+    } @else if (filtrados().length === 0) {
+      <div class="text-center py-20">
+        <p class="font-display text-2xl font-bold text-brand-700">No hay frutas con esos filtros</p>
+        <p class="mt-2 text-gray-600">Prueba con otra categoría o quita la búsqueda.</p>
+        <button type="button" (click)="verTodo()" class="btn-secondary mt-5">Ver todo el catálogo</button>
+      </div>
+    } @else {
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
+        @for (producto of filtrados(); track producto.id) {
+          <app-product-card [producto]="producto" />
+        }
+      </div>
+    }
+  </div>
 </div>

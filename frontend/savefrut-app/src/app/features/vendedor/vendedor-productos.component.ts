@@ -8,6 +8,7 @@ import { mensajeError } from '../../core/services/auth.service';
 import { ProductoRequest, ProductoVendedor } from '../../shared/models/panel.model';
 import { Categoria, TipoMedicion } from '../../shared/models/producto.model';
 import { CurrencyPENPipe } from '../../shared/pipes/currency-pen.pipe';
+import { ProductImageComponent } from '../../shared/components/product-image.component';
 
 const VACIO: ProductoRequest = {
   nombre: '', descripcion: '', precioNormal: 0, stock: 0, fechaVencimiento: '', imagenUrl: '', categoriaId: 0, medicionId: 0
@@ -16,7 +17,7 @@ const VACIO: ProductoRequest = {
 @Component({
   selector: 'app-vendedor-productos',
   standalone: true,
-  imports: [FormsModule, DatePipe, CurrencyPENPipe],
+  imports: [FormsModule, DatePipe, CurrencyPENPipe, ProductImageComponent],
   templateUrl: './vendedor-productos.component.html'
 })
 export class VendedorProductosComponent implements OnInit {

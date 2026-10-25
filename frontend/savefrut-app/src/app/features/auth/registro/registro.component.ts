@@ -2,6 +2,8 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService, mensajeError } from '../../../core/services/auth.service';
+import { LogoComponent } from '../../../shared/components/logo.component';
+import { IconComponent } from '../../../shared/components/icon.component';
 import { CatalogoService } from '../../../core/services/catalogo.service';
 import { RegistroRequest } from '../../../shared/models/auth.model';
 import { Ubicacion } from '../../../shared/models/producto.model';
@@ -9,7 +11,7 @@ import { Ubicacion } from '../../../shared/models/producto.model';
 @Component({
   selector: 'app-registro',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, LogoComponent, IconComponent],
   templateUrl: './registro.component.html'
 })
 export class RegistroComponent implements OnInit {

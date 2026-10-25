@@ -15,7 +15,7 @@ import { BarChartComponent } from '../../shared/components/bar-chart.component';
     <h1 class="text-2xl font-bold text-gray-900 mb-6">Resumen de mi tienda</h1>
     @if (perfil() && !perfil()!.aprobado) {
       <div class="mb-6 bg-amber-50 border border-amber-200 rounded-card p-4 text-sm text-amber-800" role="status">
-        ⏳ Tu tienda está <strong>pendiente de aprobación</strong>. Podrás publicar productos cuando un administrador la apruebe.
+        Tu tienda está <strong>pendiente de aprobación</strong>. Podrás publicar productos cuando un administrador la apruebe.
       </div>
     }
     @if (ventas() && inventario()) {

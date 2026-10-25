@@ -5,6 +5,7 @@ import { forkJoin } from 'rxjs';
 import { CatalogoService } from '../../../core/services/catalogo.service';
 import { Categoria, Producto } from '../../../shared/models/producto.model';
 import { ProductCardComponent } from '../../../shared/components/product-card/product-card.component';
+import { tinteCategoria } from '../../../shared/utils/producto.utils';
 
 type Orden = 'urgencia' | 'precio' | 'descuento';
 
@@ -12,7 +13,34 @@ type Orden = 'urgencia' | 'precio' | 'descuento';
   selector: 'app-productos',
   standalone: true,
   imports: [FormsModule, ProductCardComponent],
-  templateUrl: './productos.component.html'
+  templateUrl: './productos.component.html',
+  styles: `
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      height: 2.5rem;
+      padding: 0 1rem;
+      border-radius: 9999px;
+      border: 1px solid var(--color-surface-border);
+      background: #fff;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--color-gray-700);
+      white-space: nowrap;
+      transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+    }
+    .chip:hover {
+      border-color: var(--color-brand-300);
+      color: var(--color-brand-700);
+    }
+    .chip-activo,
+    .chip-activo:hover {
+      background: var(--color-brand-700);
+      border-color: var(--color-brand-700);
+      color: #fff;
+    }
+  `
 })
 export class ProductosComponent implements OnInit {
   private readonly catalogoService = inject(CatalogoService);
@@ -27,6 +55,7 @@ export class ProductosComponent implements OnInit {
   readonly termino = signal('');
   readonly categoriaId = signal<number | null>(null);
   readonly orden = signal<Orden>('urgencia');
+  readonly tinteCategoria = tinteCategoria;
 
   readonly filtrados = computed(() => {
     const q = this.termino().toLowerCase();
@@ -49,6 +78,12 @@ export class ProductosComponent implements OnInit {
       this.categoriaId.set(cat ? Number(cat) : null);
     });
 
+    this.cargar();
+  }
+
+  cargar(): void {
+    this.loading.set(true);
+    this.error.set(null);
     forkJoin({ productos: this.catalogoService.getProductos(), categorias: this.catalogoService.getCategorias() })
       .subscribe({
         next: r => {
@@ -57,10 +92,18 @@ export class ProductosComponent implements OnInit {
           this.loading.set(false);
         },
         error: () => {
-          this.error.set('Error al cargar productos');
+          this.error.set('No pudimos cargar el catálogo. Revisa tu conexión e inténtalo de nuevo.');
           this.loading.set(false);
         }
       });
+  }
+
+  limpiarBusqueda(): void {
+    this.router.navigate([], { queryParams: { q: null }, queryParamsHandling: 'merge' });
+  }
+
+  verTodo(): void {
+    this.router.navigate([], { queryParams: {} });
   }
 
   seleccionarCategoria(id: number | null): void {

@@ -1,81 +1,166 @@
-<section class="bg-gradient-to-br from-brand-50 to-surface-canvas">
-  <div class="max-w-7xl mx-auto px-4 py-12 md:py-16 flex flex-col md:flex-row items-center gap-8">
-    <div class="max-w-xl text-center md:text-left">
-      <p class="inline-block text-xs font-semibold uppercase tracking-wide bg-urgency-medium text-amber-900 px-3 py-1 rounded-full">Hasta 60% de descuento</p>
-      <h1 class="text-3xl md:text-5xl font-bold text-brand-700 leading-tight mt-4">
+<section class="bg-surface-card border-b border-surface-border">
+  <div class="max-w-7xl mx-auto px-4 py-10 md:py-16 grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-16 items-center">
+    <div>
+      <h1 class="text-[2.6rem] leading-[1.02] sm:text-6xl lg:text-[4.25rem] font-bold text-brand-700">
         Salva frutas,<br /><span class="text-brand-500">ahorra dinero</span>
       </h1>
-      <p class="text-gray-600 mt-4 text-lg">
-        Frutas próximas a vencer de mercados y bodegas de Lima. Mientras más cerca está la fecha, mayor es el descuento.
+      <p class="mt-5 text-lg text-gray-700 max-w-[34rem] leading-relaxed">
+        Frutas de mercados y bodegas de Lima que están por vencer. Rescátalas antes de que se pierdan: mientras más cerca está la fecha, mayor es el descuento.
       </p>
-      <div class="mt-6 flex flex-wrap gap-3 justify-center md:justify-start">
-        <a routerLink="/productos" class="btn-primary !px-8 !py-3 !text-base">Ver catálogo</a>
-        <a routerLink="/registro" class="btn-secondary !px-6 !py-3 !text-base">Vende tus excedentes</a>
+      <div class="mt-7 flex flex-wrap gap-3">
+        <a routerLink="/productos" class="btn-primary !px-6 !py-3 !text-base">
+          Ver catálogo <app-icon nombre="arrowRight" [tamano]="18" />
+        </a>
+        <a routerLink="/registro" class="btn-secondary !px-5 !py-3 !text-base">Vende tus excedentes</a>
       </div>
-    </div>
-    <div class="grid grid-cols-3 gap-3 text-center flex-1 max-w-md">
-      <div class="card-sf p-4"><p class="text-2xl font-bold text-brand-600">60%</p><p class="text-xs text-gray-500">dto. si vence en ≤ 2 días</p></div>
-      <div class="card-sf p-4"><p class="text-2xl font-bold text-brand-600">30%</p><p class="text-xs text-gray-500">dto. si vence en ≤ 7 días</p></div>
-      <div class="card-sf p-4"><p class="text-2xl font-bold text-brand-600">+5</p><p class="text-xs text-gray-500">Eco-Puntos por fruta salvada</p></div>
-    </div>
-  </div>
-</section>
 
-<section class="border-y border-surface-border bg-surface-card">
-  <div class="max-w-7xl mx-auto px-4 py-6 flex gap-4 overflow-x-auto">
-    @for (categoria of categorias(); track categoria.id) {
-      <a [routerLink]="['/productos']" [queryParams]="{ categoria: categoria.id }" class="flex flex-col items-center gap-2 min-w-20 group">
-        <img [src]="categoria.iconoUrl" [alt]="''" class="w-16 h-16 rounded-full object-cover group-hover:scale-110 transition-transform" />
-        <span class="text-sm font-medium text-gray-700 group-hover:text-brand-500">{{ categoria.nombre }}</span>
-      </a>
+      <figure class="mt-10 max-w-md">
+        <figcaption class="text-sm font-medium text-gray-700">El precio baja mientras se acerca la fecha</figcaption>
+        <div class="mt-2.5 flex h-11 rounded-button overflow-hidden text-sm font-semibold cifra">
+          <div class="flex-1 sm:flex-[5] flex items-center justify-between gap-2 px-3 bg-brand-100 text-brand-700">
+            <span class="font-medium whitespace-nowrap">3 a 7 días</span><span>−30%</span>
+          </div>
+          <div class="flex-1 sm:flex-[3] flex items-center justify-between gap-2 px-3 bg-brand-500 text-white">
+            <span class="font-medium whitespace-nowrap">Hasta 2 días</span><span>−60%</span>
+          </div>
+        </div>
+        <p class="mt-2.5 text-sm text-gray-600">Y ganas <strong class="font-semibold text-brand-700">+5 Eco-Puntos</strong> por cada fruta que salvas.</p>
+      </figure>
+    </div>
+
+    @if (loading() || pizarra().length) {
+      <aside class="bg-brand-900 text-brand-50 rounded-2xl p-5 sm:p-7 shadow-[0_20px_40px_-20px_rgb(11_24_9/0.45)]" aria-labelledby="pizarra-titulo">
+        <div class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-x-4 gap-y-0.5">
+          <h2 id="pizarra-titulo" class="text-2xl font-bold text-white">Pizarra de hoy</h2>
+          <span class="text-sm text-brand-300">Lo que vence primero</span>
+        </div>
+
+        <ul class="mt-5 divide-y divide-white/10">
+          @if (loading()) {
+            @for (i of [1, 2, 3]; track i) {
+              <li class="py-4 flex items-center justify-between gap-4" aria-hidden="true">
+                <div class="space-y-2"><div class="h-4 w-36 rounded bg-white/10"></div><div class="h-3 w-24 rounded bg-white/5"></div></div>
+                <div class="h-6 w-16 rounded bg-white/10"></div>
+              </li>
+            }
+          } @else {
+            @for (p of pizarra(); track p.id) {
+              <li>
+                <a [routerLink]="['/productos', p.id]" class="group py-4 flex items-center gap-4 -mx-2 px-2 rounded-button hover:bg-white/5 transition-colors">
+                  <div class="min-w-0 flex-1">
+                    <p class="font-display text-lg font-semibold text-white truncate">{{ p.nombre }}</p>
+                    <p class="mt-0.5 text-sm text-brand-200/75 truncate">{{ p.nombreVendedor }} · por {{ p.nombreMedicion }}</p>
+                  </div>
+                  <div class="text-right shrink-0">
+                    <span class="inline-block text-xs font-semibold px-2 py-0.5 rounded-button" [class]="claseUrgencia(p.diasParaVencer)">{{ etiquetaUrgencia(p.diasParaVencer) }}</span>
+                    <p class="mt-1 cifra">
+                      <span class="text-xs text-brand-300/70 line-through mr-1.5">{{ p.precioNormal | currencyPEN }}</span>
+                      <span class="font-display text-xl font-bold text-white">{{ p.precioDescuento | currencyPEN }}</span>
+                    </p>
+                  </div>
+                </a>
+              </li>
+            }
+          }
+        </ul>
+
+        <a routerLink="/productos" class="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-200 hover:text-white transition-colors">
+          Ver todo lo que vence pronto <app-icon nombre="arrowRight" [tamano]="16" />
+        </a>
+      </aside>
     }
   </div>
 </section>
 
-<section class="py-10">
-  <div class="max-w-7xl mx-auto px-4">
-    <div class="flex items-end justify-between mb-6">
-      <div>
-        <h2 class="text-2xl font-bold text-brand-700">Rescátalos antes de que venzan</h2>
-        <p class="text-gray-500 text-sm">Ordenados por urgencia</p>
-      </div>
-      <a routerLink="/productos" class="text-sm font-medium text-brand-600 hover:underline">Ver todo →</a>
-    </div>
+@if (categorias().length) {
+  <nav class="max-w-7xl mx-auto px-4 pt-8" aria-label="Categorías">
+    <ul class="flex gap-2.5 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
+      @for (categoria of categorias(); track categoria.id) {
+        <li class="shrink-0">
+          <a [routerLink]="['/productos']" [queryParams]="{ categoria: categoria.id }"
+             class="flex items-center gap-2.5 h-11 pl-1.5 pr-4 bg-surface-card border border-surface-border rounded-full text-sm font-medium text-gray-800 hover:border-brand-300 hover:text-brand-700 transition-colors">
+            <span class="w-8 h-8 rounded-full" [class]="tinteCategoria(categoria.nombre)" aria-hidden="true"></span>
+            {{ categoria.nombre }}
+            @if (!loading()) {
+              <span class="text-gray-500 font-normal cifra">{{ cantidadEnCategoria(categoria.nombre) }}</span>
+            }
+          </a>
+        </li>
+      }
+    </ul>
+  </nav>
+}
 
+<section class="pt-10 pb-4">
+  <div class="max-w-7xl mx-auto px-4">
     @if (loading()) {
-      <div class="flex justify-center py-20"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div></div>
+      <div class="flex justify-center py-20" role="status">
+        <div class="animate-spin rounded-full h-10 w-10 border-2 border-brand-100 border-t-brand-500" aria-hidden="true"></div>
+        <span class="sr-only">Cargando frutas por rescatar…</span>
+      </div>
     } @else if (error()) {
-      <div class="bg-red-50 border border-red-200 rounded-card p-4 text-center text-red-600">{{ error() }}</div>
-    } @else if (urgentes().length === 0) {
-      <p class="text-center text-gray-500 py-12">Por ahora no hay productos próximos a vencer. ¡Vuelve pronto!</p>
-    } @else {
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-        @for (producto of urgentes(); track producto.id) {
+      <div class="bg-red-50 border border-red-200 rounded-card p-6 text-center text-red-700" role="alert">
+        <p>{{ error() }}</p>
+        <button type="button" (click)="cargar()" class="btn-secondary mt-4">Intentar de nuevo</button>
+      </div>
+    } @else if (ordenados().length === 0) {
+      <div class="text-center py-16">
+        <p class="font-display text-2xl font-bold text-brand-700">Por ahora no hay frutas por rescatar</p>
+        <p class="mt-2 text-gray-600">Vuelve pronto o conoce a quienes publican aquí.</p>
+        <a routerLink="/tiendas" class="btn-secondary mt-5">Conoce las tiendas aliadas</a>
+      </div>
+    } @else if (resto().length) {
+      <div class="flex items-end justify-between gap-4 mb-6">
+        <div>
+          <h2 class="text-3xl font-bold text-brand-700">Rescátalos antes de que venzan</h2>
+          <p class="mt-1 text-gray-600">Primero, los que vencen antes</p>
+        </div>
+        <a routerLink="/productos" class="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-700 hover:underline shrink-0">
+          Ver todo el catálogo <app-icon nombre="arrowRight" [tamano]="16" />
+        </a>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
+        @for (producto of resto(); track producto.id) {
           <app-product-card [producto]="producto" />
         }
       </div>
+      <a routerLink="/productos" class="sm:hidden mt-6 btn-secondary w-full">Ver todo el catálogo</a>
     }
   </div>
 </section>
 
 @if (vendedores().length) {
-  <section class="py-10 bg-surface-card border-t border-surface-border">
+  <section class="pt-12 pb-4">
     <div class="max-w-7xl mx-auto px-4">
-      <div class="flex items-end justify-between mb-6">
-        <h2 class="text-2xl font-bold text-brand-700">Tiendas aliadas</h2>
-        <a routerLink="/tiendas" class="text-sm font-medium text-brand-600 hover:underline">Ver todas →</a>
+      <div class="flex items-end justify-between gap-4 mb-6">
+        <div>
+          <h2 class="text-3xl font-bold text-brand-700">Tiendas aliadas</h2>
+          <p class="mt-1 text-gray-600">Mercados y bodegas que publican sus excedentes</p>
+        </div>
+        <a routerLink="/tiendas" class="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-700 hover:underline shrink-0">
+          Ver todas las tiendas <app-icon nombre="arrowRight" [tamano]="16" />
+        </a>
       </div>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         @for (vendedor of vendedores(); track vendedor.id) {
-          <a [routerLink]="['/tienda', vendedor.id]" class="card-sf p-4 hover:shadow-lg transition-shadow flex items-center gap-3">
-            <img [src]="vendedor.logoUrl || imagenTienda" alt="" class="w-12 h-12 rounded-full object-cover bg-gray-100" />
-            <div class="min-w-0">
-              <h3 class="font-medium text-gray-900 truncate">{{ vendedor.razonSocial }}</h3>
-              <p class="text-xs text-gray-500 truncate">{{ vendedor.nombreDistrito }}</p>
-            </div>
-          </a>
+          <li>
+            <a [routerLink]="['/tienda', vendedor.id]" class="flex items-center gap-3 p-3 pr-4 bg-surface-card border border-surface-border rounded-card hover:border-brand-300 transition-colors">
+              @if (tieneImagen(vendedor.logoUrl)) {
+                <img [src]="vendedor.logoUrl" alt="" class="w-11 h-11 rounded-full object-cover bg-gray-100 shrink-0" />
+              } @else {
+                <span class="w-11 h-11 rounded-full bg-brand-100 text-brand-700 font-display font-bold text-sm flex items-center justify-center shrink-0" aria-hidden="true">{{ iniciales(vendedor.razonSocial) }}</span>
+              }
+              <div class="min-w-0">
+                <h3 class="font-semibold text-gray-900 truncate">{{ vendedor.razonSocial }}</h3>
+                @if (vendedor.nombreDistrito) {
+                  <p class="text-sm text-gray-600 truncate">{{ vendedor.nombreDistrito }}</p>
+                }
+              </div>
+            </a>
+          </li>
         }
-      </div>
+      </ul>
+      <a routerLink="/tiendas" class="sm:hidden mt-4 btn-secondary w-full">Ver todas las tiendas</a>
     </div>
   </section>
 }

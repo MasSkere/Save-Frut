@@ -68,7 +68,7 @@
         <tr [class.opacity-60]="!p.activo">
           <td>
             <div class="flex items-center gap-2">
-              <img [src]="p.imagenUrl" alt="" class="w-10 h-10 rounded object-cover bg-gray-100" />
+              <app-product-image class="relative w-10 h-10 rounded shrink-0" [url]="p.imagenUrl" [nombre]="p.nombre" [categoria]="p.nombreCategoria" [compacto]="true" [decorativo]="true" />
               <span class="font-medium">{{ p.nombre }}</span>
             </div>
           </td>

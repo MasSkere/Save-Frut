@@ -1,5 +1,6 @@
 import { AfterViewInit, Component, ElementRef, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { GoogleMapsLoaderService } from '../../core/services/google-maps-loader.service';
+import { IconComponent } from './icon.component';
 
 export interface UbicacionMapa {
   lat: number;
@@ -16,25 +17,24 @@ const LIMA = { lat: -12.0464, lng: -77.0428 };
 @Component({
   selector: 'app-mapa',
   standalone: true,
+  imports: [IconComponent],
   template: `
     @if (estado() === 'sin-clave') {
-      <div class="rounded-button border border-dashed border-surface-border p-4 text-sm text-gray-500 text-center">
-        Mapa no disponible: configura <code>GOOGLE_MAPS_API_KEY</code> en el archivo .env.
-      </div>
+      <!-- Sin clave de Google Maps no se muestra nada: el cliente escribe la dirección y la tienda enlaza a Google Maps. -->
     } @else if (estado() === 'error') {
-      <div class="rounded-button bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800 text-center">
-        No se pudo cargar Google Maps. Puedes continuar escribiendo la dirección manualmente.
+      <div class="rounded-button bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900 text-center">
+        No se pudo cargar el mapa. Puedes continuar escribiendo la dirección.
       </div>
     } @else {
       <div class="relative">
         <div #contenedor class="w-full rounded-button bg-gray-100 border border-surface-border" [style.height.px]="alto()"></div>
         @if (editable()) {
           <button type="button" (click)="usarMiUbicacion()"
-                  class="absolute bottom-3 left-3 btn-secondary !py-1 !px-3 !text-xs shadow">📍 Usar mi ubicación</button>
+                  class="absolute bottom-3 left-3 btn-secondary !py-1.5 !px-3 !text-xs shadow"><app-icon nombre="pin" [tamano]="14" />Usar mi ubicación</button>
         }
       </div>
       @if (editable()) {
-        <p class="text-xs text-gray-500 mt-1">Haz clic en el mapa para marcar el punto exacto de entrega.</p>
+        <p class="text-xs text-gray-600 mt-1.5">Toca el mapa para marcar el punto exacto de entrega.</p>
       }
     }
   `

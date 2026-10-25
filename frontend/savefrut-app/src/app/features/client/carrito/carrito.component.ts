@@ -1,37 +1,35 @@
 import { Component, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
-import { CarritoService } from '../../../core/services/carrito.service';
+import { Router, RouterLink } from '@angular/router';
+import { CarritoService, TARIFA_VARIEDAD } from '../../../core/services/carrito.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { CurrencyPENPipe } from '../../../shared/pipes/currency-pen.pipe';
+import { CartLineComponent } from '../../../shared/components/cart-line.component';
+import { IconComponent } from '../../../shared/components/icon.component';
 
 @Component({
   selector: 'app-carrito',
   standalone: true,
-  imports: [CommonModule, RouterLink, CurrencyPENPipe],
+  imports: [RouterLink, CurrencyPENPipe, CartLineComponent, IconComponent],
   templateUrl: './carrito.component.html',
   styleUrl: './carrito.component.css'
 })
 export class CarritoComponent {
   private readonly carritoService = inject(CarritoService);
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
 
-  readonly items = this.carritoService.items;
+  readonly porTienda = this.carritoService.porTienda;
   readonly isEmpty = this.carritoService.isEmpty;
   readonly totalPrecio = this.carritoService.totalPrecio;
   readonly totalAhorro = this.carritoService.totalAhorro;
-
-  incrementar(productoId: number, cantidadActual: number): void {
-    this.carritoService.actualizarCantidad(productoId, cantidadActual + 1);
-  }
-
-  decrementar(productoId: number, cantidadActual: number): void {
-    this.carritoService.actualizarCantidad(productoId, cantidadActual - 1);
-  }
-
-  eliminar(productoId: number): void {
-    this.carritoService.eliminar(productoId);
-  }
+  readonly cantidadTiendas = this.carritoService.cantidadTiendas;
+  readonly tarifaVariedad = TARIFA_VARIEDAD;
 
   irACheckout(): void {
-    // Later will check auth and redirect to /checkout/envio
+    if (!this.authService.isCliente()) {
+      this.router.navigate(['/login'], { queryParams: { returnUrl: '/checkout' } });
+      return;
+    }
+    this.router.navigate(['/checkout']);
   }
 }

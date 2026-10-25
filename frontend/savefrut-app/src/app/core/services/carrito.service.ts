@@ -4,6 +4,10 @@ import { Producto } from '../../shared/models/producto.model';
 
 const CART_STORAGE_KEY = 'savefrut_cart';
 
+/** Cargos que el backend vuelve a calcular al crear la orden; aquí solo se muestran por adelantado. */
+export const COSTO_ENVIO_DOMICILIO = 10;
+export const TARIFA_VARIEDAD = 5;
+
 /** Carrito local (localStorage). La orden real se crea en el checkout contra ms-ordenes. */
 @Injectable({ providedIn: 'root' })
 export class CarritoService {
@@ -20,6 +24,16 @@ export class CarritoService {
   readonly isEmpty = computed(() => this._items().length === 0);
   /** Comprar a más de una tienda agrega la tarifa por variedad (S/ 5.00). */
   readonly cantidadTiendas = computed(() => new Set(this._items().map(i => i.vendedorId)).size);
+  /** Ítems agrupados por tienda, en el orden en que se agregaron: así se ve de dónde sale la tarifa por variedad. */
+  readonly porTienda = computed(() => {
+    const grupos = new Map<number | undefined, { vendedorId?: number; nombreVendedor: string; items: CarritoItem[] }>();
+    for (const item of this._items()) {
+      const grupo = grupos.get(item.vendedorId) ?? { vendedorId: item.vendedorId, nombreVendedor: item.nombreVendedor ?? 'Tienda', items: [] };
+      grupo.items.push(item);
+      grupos.set(item.vendedorId, grupo);
+    }
+    return [...grupos.values()];
+  });
 
   constructor() {
     effect(() => localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(this._items())));
@@ -38,7 +52,9 @@ export class CarritoService {
         cantidad,
         imagen: producto.imagenUrl,
         vendedorId: producto.vendedorId,
-        nombreVendedor: producto.nombreVendedor
+        nombreVendedor: producto.nombreVendedor,
+        categoria: producto.nombreCategoria,
+        fechaVencimiento: producto.fechaVencimiento
       }]);
     }
     this._drawerOpen.set(true);

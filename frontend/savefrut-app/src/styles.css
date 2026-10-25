@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* Puntos de color del stat-card: se derivan en tiempo de ejecución de su clase de borde. */
+@source inline("bg-blue-500 bg-indigo-500 bg-urgency-medium bg-brand-500");
+
 @theme {
   --color-brand-50: #f1f8f1;
   --color-brand-100: #deeede;
@@ -22,17 +25,58 @@
   --color-surface-sidebar: #f3f4f5;
   --color-surface-border: #e5e7eb;
 
-  --font-family-sans: 'Inter', 'system-ui', 'sans-serif';
+  /* Tintes de cartel por categoría: fondo de la ficha cuando el producto aún no tiene foto. */
+  --color-cat-acidas: #eef2d3;
+  --color-cat-semidulces: #f4ecd6;
+  --color-cat-dulces: #f6e6dc;
+  --color-cat-neutras: #e2ede0;
+
+  /* Figtree para leer; Bricolage Grotesque para los carteles (títulos, precios grandes, marca). */
+  --font-sans: 'Figtree Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Bricolage Grotesque Variable', 'Figtree Variable', ui-sans-serif, system-ui, sans-serif;
 
   --radius-button: 0.5rem;
   --radius-card: 0.75rem;
 
   --shadow-soft: 0 2px 15px -3px rgba(0, 0, 0, 0.07);
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
-body {
-  font-family: var(--font-family-sans);
-  background-color: var(--color-surface-canvas);
+@layer base {
+  html {
+    color: var(--color-gray-900);
+    -webkit-tap-highlight-color: transparent;
+    scrollbar-color: var(--color-brand-200) transparent;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-surface-canvas);
+    caret-color: var(--color-brand-500);
+  }
+
+  ::selection {
+    background-color: var(--color-brand-200);
+    color: var(--color-brand-800);
+  }
+
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+  }
+
+  a {
+    text-underline-offset: 0.2em;
+  }
 }
 
 .line-clamp-2 {
@@ -41,15 +85,37 @@ body {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* Montos y conteos: cifras tabulares para que las columnas de soles se alineen. */
+.cifra {
+  font-variant-numeric: tabular-nums;
+}
+
 @layer components {
   .input-sf {
     @apply w-full px-3 py-2 bg-white border border-surface-border rounded-button text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:bg-gray-100;
   }
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-button transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold rounded-button disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-white border border-surface-border hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-button transition-colors disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-white border border-surface-border hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-button disabled:opacity-50;
+  }
+  /* Acción frecuente y de bajo riesgo (Agregar): presente sin teñir la grilla de verde. */
+  .btn-quiet {
+    @apply inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-brand-50 hover:bg-brand-100 text-brand-700 text-sm font-semibold rounded-button disabled:opacity-50;
+  }
+  .btn-primary,
+  .btn-secondary,
+  .btn-quiet {
+    transition:
+      background-color 150ms ease,
+      transform 160ms var(--ease-out);
+  }
+  .btn-primary:active:not(:disabled),
+  .btn-secondary:active:not(:disabled),
+  .btn-quiet:active:not(:disabled) {
+    transform: scale(0.97);
   }
   .card-sf {
     @apply bg-surface-card rounded-card shadow-soft;
@@ -57,10 +123,34 @@ body {
   .tabla-sf {
     @apply w-full text-sm text-left;
   }
+  .tabla-sf {
+    font-variant-numeric: tabular-nums;
+  }
   .tabla-sf th {
-    @apply px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 bg-surface-sidebar;
+    @apply px-3 py-2.5 text-xs font-semibold text-gray-600 bg-surface-sidebar whitespace-nowrap;
   }
   .tabla-sf td {
-    @apply px-3 py-2 border-t border-surface-border align-middle;
+    @apply px-3 py-2.5 border-t border-surface-border align-middle;
+  }
+  .tabla-sf tbody tr {
+    transition: background-color 120ms ease;
+  }
+  .tabla-sf tbody tr:hover {
+    background-color: var(--color-brand-50);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  /* El spinner es estado, no decoración: sigue girando, más lento. */
+  .animate-spin {
+    animation-duration: 1.5s !important;
+    animation-iteration-count: infinite !important;
   }
 }

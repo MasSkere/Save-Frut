@@ -1,14 +1,16 @@
-import { Component, input } from '@angular/core';
+import { Component, computed, input } from '@angular/core';
 
 @Component({
   selector: 'app-stat-card',
   standalone: true,
   template: `
-    <div class="bg-surface-card rounded-card shadow-soft p-4 border-l-4" [class]="borde()">
-      <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">{{ titulo() }}</p>
-      <p class="text-2xl font-bold text-gray-900 mt-1 tabular-nums">{{ valor() }}</p>
+    <div class="h-full bg-surface-card border border-surface-border rounded-card p-4 sm:p-5">
+      <p class="flex items-center gap-2 text-sm font-medium text-gray-600">
+        <span class="w-2 h-2 rounded-full shrink-0" [class]="punto()" aria-hidden="true"></span>{{ titulo() }}
+      </p>
+      <p class="mt-2 font-display text-2xl sm:text-3xl font-bold text-gray-900 leading-none cifra">{{ valor() }}</p>
       @if (detalle()) {
-        <p class="text-xs text-gray-500 mt-1">{{ detalle() }}</p>
+        <p class="mt-2 text-xs text-gray-600">{{ detalle() }}</p>
       }
     </div>
   `
@@ -17,5 +19,7 @@ export class StatCardComponent {
   readonly titulo = input.required<string>();
   readonly valor = input.required<string | number>();
   readonly detalle = input<string>('');
+  /** Color de la métrica como clase de borde ("border-blue-500"); se muestra como un punto junto al título. */
   readonly borde = input<string>('border-brand-500');
+  readonly punto = computed(() => this.borde().replace(/^border-/, 'bg-'));
 }

@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { CrearOrdenRequest, Orden, PreferenciaPago } from '../../shared/models/orden.model';
@@ -21,6 +22,7 @@ export interface PerfilCliente {
 @Injectable({ providedIn: 'root' })
 export class OrdenService {
   private readonly http = inject(HttpClient);
+  private readonly router = inject(Router);
   private readonly api = environment.apiUrl;
 
   crearOrden(request: CrearOrdenRequest): Observable<Orden> {
@@ -29,6 +31,28 @@ export class OrdenService {
 
   misOrdenes(): Observable<Orden[]> {
     return this.http.get<Orden[]>(`${this.api}/ordenes/mis-ordenes`);
+  }
+
+  /**
+   * Abre Mercado Pago en otra pestaña y deja esta en el resultado, que espera el pago y muestra la boleta.
+   * Así SaveFrut nunca se pierde aunque el checkout falle. Si el navegador bloquea la pestaña, redirige aquí mismo.
+   * `pestanaAbierta` es la que el checkout abrió en el clic, para que el navegador no la bloquee.
+   */
+  irAPagar(preferencia: PreferenciaPago, pestanaAbierta?: Window | null): void {
+    const url = preferencia.initPoint || preferencia.sandboxInitPoint;
+    let pestana: Window | null;
+    if (pestanaAbierta && !pestanaAbierta.closed) {
+      pestanaAbierta.location.href = url;
+      pestana = pestanaAbierta;
+    } else {
+      pestana = window.open(url, '_blank');
+    }
+    if (!pestana) {
+      window.location.href = url;
+      return;
+    }
+    pestana.opener = null;
+    this.router.navigate(['/checkout/resultado'], { queryParams: { ordenId: preferencia.ordenId } });
   }
 
   getOrden(id: number): Observable<Orden> {

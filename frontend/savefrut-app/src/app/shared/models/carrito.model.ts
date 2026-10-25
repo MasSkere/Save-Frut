@@ -7,4 +7,7 @@ export interface CarritoItem {
   imagen: string;
   vendedorId?: number;
   nombreVendedor?: string;
+  /** Opcionales: los carritos guardados antes de este cambio no los traen. */
+  categoria?: string;
+  fechaVencimiento?: string;
 }
