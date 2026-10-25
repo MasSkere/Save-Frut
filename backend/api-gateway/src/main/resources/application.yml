@@ -1,0 +1,46 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: false
+      routes:
+        - id: ms-identidad
+          uri: http://localhost:8081
+          predicates:
+            - Path=/auth/**, /usuarios/**, /clientes/**, /vendedores/**, /admin/usuarios/**, /admin/vendedores/**, /vendedor/perfil/**
+        - id: ms-catalogo
+          uri: http://localhost:8082
+          predicates:
+            - Path=/productos/**, /categorias/**, /tipo-medicion/**, /vendedor/productos/**, /admin/productos/**
+        - id: ms-ordenes
+          uri: http://localhost:8083
+          predicates:
+            - Path=/ordenes/**, /pagos/**
+        - id: ms-puntos
+          uri: http://localhost:8084
+          predicates:
+            - Path=/puntos/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always

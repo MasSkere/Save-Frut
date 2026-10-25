@@ -1,0 +1,88 @@
+<div class="min-h-screen bg-surface-canvas pb-20">
+  <div class="max-w-4xl mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold text-brand-700 mb-6">Mi Carrito</h1>
+
+    @if (isEmpty()) {
+      <div class="bg-surface-card rounded-card shadow-soft p-8 text-center">
+        <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+        </div>
+        <p class="text-gray-600 mb-4">Tu carrito está vacío</p>
+        <a routerLink="/" class="inline-block bg-brand-500 hover:bg-brand-600 text-white font-semibold py-3 px-6 rounded-button transition-colors">
+          Ver Ofertas
+        </a>
+      </div>
+    } @else {
+      @for (item of items(); track item.productoId) {
+        <div class="bg-surface-card rounded-card shadow-soft mb-4">
+          <div class="p-4 flex gap-4">
+            <div class="w-20 h-20 rounded-card overflow-hidden bg-gray-100 flex-shrink-0">
+              <img [src]="item.imagen" [alt]="item.nombre" class="w-full h-full object-cover" />
+            </div>
+            
+            <div class="flex-1 min-w-0">
+              <h3 class="text-sm font-medium text-gray-900 truncate">{{ item.nombre }}</h3>
+              <p class="text-lg font-bold text-brand-600 mt-1">
+                {{ item.precio | currencyPEN }}
+              </p>
+              
+              <div class="flex items-center gap-3 mt-2">
+                <button 
+                  (click)="decrementar(item.productoId, item.cantidad)"
+                  [disabled]="item.cantidad <= 1"
+                  class="w-8 h-8 flex items-center justify-center border border-surface-border rounded-full text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+                  </svg>
+                </button>
+                <span class="w-8 text-center font-medium">{{ item.cantidad }}</span>
+                <button 
+                  (click)="incrementar(item.productoId, item.cantidad)"
+                  class="w-8 h-8 flex items-center justify-center border border-surface-border rounded-full text-gray-600 hover:bg-gray-50"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <button 
+              (click)="eliminar(item.productoId)"
+              class="self-start p-2 text-gray-400 hover:text-red-500 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      }
+
+      <div class="bg-surface-card rounded-card shadow-soft p-4">
+        <div class="flex justify-between text-sm mb-2">
+          <span class="text-gray-600">Subtotal</span>
+          <span class="text-gray-900">{{ totalPrecio() | currencyPEN }}</span>
+        </div>
+        <div class="flex justify-between text-sm text-green-600 mb-2">
+          <span>Ahorro</span>
+          <span>-{{ totalAhorro() | currencyPEN }}</span>
+        </div>
+        <div class="flex justify-between text-lg font-bold pt-2 border-t border-surface-border">
+          <span class="text-gray-900">Total</span>
+          <span class="text-brand-600">{{ totalPrecio() | currencyPEN }}</span>
+        </div>
+      </div>
+
+      <a 
+        routerLink="/checkout"
+        class="fixed bottom-0 left-0 right-0 bg-brand-500 hover:bg-brand-600 text-white font-semibold py-4 px-6 text-center transition-colors z-50"
+      >
+        Continuar con la compra
+      </a>
+    }
+  </div>
+</div>

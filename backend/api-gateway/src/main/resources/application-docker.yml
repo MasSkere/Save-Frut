@@ -1,0 +1,56 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+      routes:
+        - id: ms-identidad
+          uri: ${MS_IDENTIDAD_URL:http://ms-identidad:8081}
+          predicates:
+            - Path=/auth/**, /clientes/**, /vendedores/**, /ubicacion/**, /admin/usuarios/**, /admin/vendedores/**, /vendedor/perfil/**
+        - id: ms-catalogo
+          uri: ${MS_CATALOGO_URL:http://ms-catalogo:8082}
+          predicates:
+            - Path=/productos/**, /categorias/**, /tipo-medicion/**, /vendedor/productos/**, /admin/productos/**
+        - id: ms-ordenes
+          uri: ${MS_ORDENES_URL:http://ms-ordenes:8083}
+          predicates:
+            - Path=/ordenes/**, /pagos/**, /admin/ordenes/**, /admin/dashboard/**, /admin/reportes/**, /vendedor/ordenes/**
+        - id: ms-puntos
+          uri: ${MS_PUNTOS_URL:http://ms-puntos:8084}
+          predicates:
+            - Path=/puntos/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,gateway
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    distribution:
+      percentiles-histogram:
+        "[http.server.requests]": true
+    tags:
+      application: ${spring.application.name}

@@ -1,0 +1,140 @@
+<!-- Overlay -->
+@if (isOpen()) {
+  <div 
+    class="fixed inset-0 bg-black/50 z-40 transition-opacity duration-300"
+    (click)="closeDrawer()"
+  ></div>
+}
+
+<!-- Drawer Panel -->
+<div 
+  class="fixed top-0 right-0 h-full w-full max-w-md bg-surface-card shadow-2xl z-50 transform transition-transform duration-300 flex flex-col"
+  [class.translate-x-full]="!isOpen()"
+  [class.translate-x-0]="isOpen()"
+>
+  <!-- Header -->
+  <div class="flex items-center justify-between p-4 border-b border-surface-border">
+    <div class="flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+      </svg>
+      <h2 class="text-lg font-bold text-gray-900">Mi Carrito</h2>
+      <span class="bg-brand-500 text-white text-xs font-semibold px-2 py-0.5 rounded-full">
+        {{ totalItems() }}
+      </span>
+    </div>
+    <button 
+      (click)="closeDrawer()"
+      class="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  </div>
+
+  <!-- Content -->
+  <div class="flex-1 overflow-y-auto">
+    @if (isEmpty()) {
+      <!-- Carrito Vacío -->
+      <div class="flex flex-col items-center justify-center h-full p-8 text-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-24 h-24 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">Tu carrito está vacío</h3>
+        <p class="text-gray-500 mb-6">¡Salva frutas y verduras frescas a precios únicos!</p>
+        <a 
+          routerLink="/" 
+          (click)="irAComprar()"
+          class="bg-brand-500 hover:bg-brand-600 text-white font-semibold py-3 px-8 rounded-button transition-colors"
+        >
+          Ir a Comprar
+        </a>
+      </div>
+    } @else {
+      <!-- Lista de Productos -->
+      <ul class="divide-y divide-surface-border">
+        @for (item of items(); track item.productoId) {
+          <li class="p-4 flex gap-4">
+            <!-- Imagen -->
+            <div class="w-20 h-20 rounded-card overflow-hidden bg-gray-100 flex-shrink-0">
+              <img [src]="item.imagen" [alt]="item.nombre" class="w-full h-full object-cover" />
+            </div>
+            
+            <!-- Info -->
+            <div class="flex-1 min-w-0">
+              <h4 class="text-sm font-medium text-gray-900 truncate">{{ item.nombre }}</h4>
+              <p class="text-lg font-bold text-urgency-high mt-1">
+                {{ item.precio | currencyPEN }}
+              </p>
+              
+              <!-- Cantidad -->
+              <div class="flex items-center gap-2 mt-2">
+                <button 
+                  (click)="decrementar(item.productoId, item.cantidad)"
+                  [disabled]="item.cantidad <= 1"
+                  class="w-7 h-7 flex items-center justify-center border border-surface-border rounded-full text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+                  </svg>
+                </button>
+                <span class="w-6 text-center text-sm font-medium">{{ item.cantidad }}</span>
+                <button 
+                  (click)="incrementar(item.productoId, item.cantidad)"
+                  class="w-7 h-7 flex items-center justify-center border border-surface-border rounded-full text-gray-600 hover:bg-gray-50"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Eliminar -->
+            <button 
+              (click)="eliminarItem(item.productoId)"
+              class="p-1 text-gray-400 hover:text-red-500 transition-colors self-start"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+
+  <!-- Footer -->
+  @if (!isEmpty()) {
+    <div class="border-t border-surface-border p-4 bg-surface-canvas">
+      <!-- Totals -->
+      <div class="space-y-2 mb-4">
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-600">Subtotal</span>
+          <span class="text-gray-900">{{ totalPrecio() | currencyPEN }}</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-green-600">Ahorro</span>
+          <span class="text-green-600">-{{ totalAhorro() | currencyPEN }}</span>
+        </div>
+        <div class="flex justify-between text-lg font-bold pt-2 border-t border-surface-border">
+          <span class="text-gray-900">Total</span>
+          <span class="text-brand-600">{{ totalPrecio() | currencyPEN }}</span>
+        </div>
+      </div>
+
+      <!-- Botón Finalizar -->
+      <button 
+        (click)="finalizarCompra()"
+        class="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-3 px-6 rounded-button transition-colors flex items-center justify-center gap-2"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+        </svg>
+        Finalizar Compra
+      </button>
+    </div>
+  }
+</div>

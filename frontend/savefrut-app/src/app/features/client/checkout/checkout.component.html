@@ -1,0 +1,105 @@
+<div class="max-w-5xl mx-auto px-4 py-8">
+  <h1 class="text-2xl font-bold text-brand-700 mb-6">Finalizar compra</h1>
+
+  @if (error()) {
+    <div class="mb-6 bg-red-50 border border-red-200 rounded-card p-4 text-sm text-red-700" role="alert">
+      <p class="font-semibold">{{ error() }}</p>
+      @if (ordenPendiente()) {
+        <p class="mt-1">Tu orden <strong>#{{ ordenPendiente() }}</strong> quedó registrada y el stock reservado. Puedes reintentar el pago desde
+          <a routerLink="/mis-pedidos" class="underline font-medium">Mis pedidos</a>.</p>
+      }
+    </div>
+  }
+
+  @if (!ordenPendiente()) {
+  <div class="grid lg:grid-cols-5 gap-6">
+    <form class="lg:col-span-3 space-y-6" (ngSubmit)="pagar()" #f="ngForm">
+      <section class="card-sf p-6">
+        <h2 class="text-lg font-semibold mb-4">1. Entrega</h2>
+        <div class="grid grid-cols-2 gap-3">
+          <button type="button" (click)="tipoEntrega.set('DOMICILIO')"
+                  class="p-4 rounded-button border text-left"
+                  [class]="tipoEntrega() === 'DOMICILIO' ? 'border-brand-500 bg-brand-50' : 'border-surface-border'">
+            <p class="font-semibold">🚚 Envío a domicilio</p>
+            <p class="text-sm text-gray-500">S/ 10.00</p>
+          </button>
+          <button type="button" (click)="tipoEntrega.set('RECOJO')"
+                  class="p-4 rounded-button border text-left"
+                  [class]="tipoEntrega() === 'RECOJO' ? 'border-brand-500 bg-brand-50' : 'border-surface-border'">
+            <p class="font-semibold">🏪 Recojo en tienda</p>
+            <p class="text-sm text-gray-500">Gratis</p>
+          </button>
+        </div>
+
+        @if (tipoEntrega() === 'DOMICILIO') {
+          <div class="mt-4 space-y-3">
+            <app-mapa [editable]="true" [lat]="ubicacion()?.lat" [lng]="ubicacion()?.lng" (cambio)="elegirUbicacion($event)" />
+            <div>
+              <label for="direccion" class="block text-sm font-medium text-gray-700 mb-1">Dirección de entrega</label>
+              <input id="direccion" name="direccion" required [ngModel]="direccion()" (ngModelChange)="direccion.set($event)" class="input-sf" placeholder="Av. / Calle, número, referencia" />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label for="provincia" class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+                <select id="provincia" name="provincia" [(ngModel)]="provinciaId" (ngModelChange)="cambiarProvincia()" class="input-sf">
+                  <option [ngValue]="null">Selecciona…</option>
+                  @for (p of provincias(); track p.id) { <option [ngValue]="p.id">{{ p.nombre }}</option> }
+                </select>
+              </div>
+              <div>
+                <label for="distrito" class="block text-sm font-medium text-gray-700 mb-1">Distrito</label>
+                @if (distritos().length) {
+                  <select id="distrito" name="distrito" required [ngModel]="distritoNombre()" (ngModelChange)="distritoNombre.set($event)" class="input-sf">
+                    <option value="">Selecciona…</option>
+                    @for (d of distritos(); track d.id) { <option [value]="d.nombre">{{ d.nombre }}</option> }
+                  </select>
+                } @else {
+                  <input id="distrito" name="distrito" required [ngModel]="distritoNombre()" (ngModelChange)="distritoNombre.set($event)" class="input-sf" placeholder="Distrito" />
+                }
+              </div>
+            </div>
+          </div>
+        }
+      </section>
+
+      <section class="card-sf p-6">
+        <h2 class="text-lg font-semibold mb-2">2. Pago</h2>
+        <p class="text-sm text-gray-600">Serás redirigido a <strong>Mercado Pago</strong> para pagar de forma segura con tarjeta, Yape u otros medios.
+          Al confirmarse el pago recibirás tus Eco-Puntos automáticamente.</p>
+        <button type="submit" [disabled]="procesando() || f.invalid"
+                class="btn-primary w-full mt-4 !py-3 !text-base">
+          {{ procesando() ? 'Procesando…' : 'Pagar ' + (total() | currencyPEN) + ' con Mercado Pago' }}
+        </button>
+      </section>
+    </form>
+
+    <aside class="lg:col-span-2">
+      <div class="card-sf p-6 lg:sticky lg:top-24">
+        <h2 class="text-lg font-semibold mb-4">Resumen ({{ items().length }} productos)</h2>
+        <ul class="divide-y divide-surface-border mb-4">
+          @for (item of items(); track item.productoId) {
+            <li class="py-2 flex items-center gap-3">
+              <img [src]="item.imagen" alt="" class="w-12 h-12 rounded object-cover bg-gray-100" />
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium truncate">{{ item.nombre }}</p>
+                <p class="text-xs text-gray-500">{{ item.cantidad }} × {{ item.precio | currencyPEN }} · {{ item.nombreVendedor }}</p>
+              </div>
+              <span class="text-sm font-semibold tabular-nums">{{ item.precio * item.cantidad | currencyPEN }}</span>
+            </li>
+          }
+        </ul>
+        <dl class="space-y-1 text-sm">
+          <div class="flex justify-between"><dt class="text-gray-600">Subtotal</dt><dd class="tabular-nums">{{ subtotal() | currencyPEN }}</dd></div>
+          <div class="flex justify-between"><dt class="text-gray-600">Envío</dt><dd class="tabular-nums">{{ costoEnvio() | currencyPEN }}</dd></div>
+          @if (tarifaVariedad()) {
+            <div class="flex justify-between"><dt class="text-gray-600">Tarifa por {{ cantidadTiendas() }} tiendas</dt><dd class="tabular-nums">{{ tarifaVariedad() | currencyPEN }}</dd></div>
+          }
+          <div class="flex justify-between text-green-700"><dt>Ahorro vs. precio normal</dt><dd class="tabular-nums">-{{ ahorro() | currencyPEN }}</dd></div>
+          <div class="flex justify-between text-lg font-bold pt-2 border-t border-surface-border"><dt>Total</dt><dd class="text-brand-600 tabular-nums">{{ total() | currencyPEN }}</dd></div>
+        </dl>
+        <p class="text-xs text-gray-500 mt-3">El precio final se valida en el servidor con el descuento vigente.</p>
+      </div>
+    </aside>
+  </div>
+  }
+</div>

@@ -1,0 +1,81 @@
+<section class="bg-gradient-to-br from-brand-50 to-surface-canvas">
+  <div class="max-w-7xl mx-auto px-4 py-12 md:py-16 flex flex-col md:flex-row items-center gap-8">
+    <div class="max-w-xl text-center md:text-left">
+      <p class="inline-block text-xs font-semibold uppercase tracking-wide bg-urgency-medium text-amber-900 px-3 py-1 rounded-full">Hasta 60% de descuento</p>
+      <h1 class="text-3xl md:text-5xl font-bold text-brand-700 leading-tight mt-4">
+        Salva frutas,<br /><span class="text-brand-500">ahorra dinero</span>
+      </h1>
+      <p class="text-gray-600 mt-4 text-lg">
+        Frutas próximas a vencer de mercados y bodegas de Lima. Mientras más cerca está la fecha, mayor es el descuento.
+      </p>
+      <div class="mt-6 flex flex-wrap gap-3 justify-center md:justify-start">
+        <a routerLink="/productos" class="btn-primary !px-8 !py-3 !text-base">Ver catálogo</a>
+        <a routerLink="/registro" class="btn-secondary !px-6 !py-3 !text-base">Vende tus excedentes</a>
+      </div>
+    </div>
+    <div class="grid grid-cols-3 gap-3 text-center flex-1 max-w-md">
+      <div class="card-sf p-4"><p class="text-2xl font-bold text-brand-600">60%</p><p class="text-xs text-gray-500">dto. si vence en ≤ 2 días</p></div>
+      <div class="card-sf p-4"><p class="text-2xl font-bold text-brand-600">30%</p><p class="text-xs text-gray-500">dto. si vence en ≤ 7 días</p></div>
+      <div class="card-sf p-4"><p class="text-2xl font-bold text-brand-600">+5</p><p class="text-xs text-gray-500">Eco-Puntos por fruta salvada</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="border-y border-surface-border bg-surface-card">
+  <div class="max-w-7xl mx-auto px-4 py-6 flex gap-4 overflow-x-auto">
+    @for (categoria of categorias(); track categoria.id) {
+      <a [routerLink]="['/productos']" [queryParams]="{ categoria: categoria.id }" class="flex flex-col items-center gap-2 min-w-20 group">
+        <img [src]="categoria.iconoUrl" [alt]="''" class="w-16 h-16 rounded-full object-cover group-hover:scale-110 transition-transform" />
+        <span class="text-sm font-medium text-gray-700 group-hover:text-brand-500">{{ categoria.nombre }}</span>
+      </a>
+    }
+  </div>
+</section>
+
+<section class="py-10">
+  <div class="max-w-7xl mx-auto px-4">
+    <div class="flex items-end justify-between mb-6">
+      <div>
+        <h2 class="text-2xl font-bold text-brand-700">Rescátalos antes de que venzan</h2>
+        <p class="text-gray-500 text-sm">Ordenados por urgencia</p>
+      </div>
+      <a routerLink="/productos" class="text-sm font-medium text-brand-600 hover:underline">Ver todo →</a>
+    </div>
+
+    @if (loading()) {
+      <div class="flex justify-center py-20"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div></div>
+    } @else if (error()) {
+      <div class="bg-red-50 border border-red-200 rounded-card p-4 text-center text-red-600">{{ error() }}</div>
+    } @else if (urgentes().length === 0) {
+      <p class="text-center text-gray-500 py-12">Por ahora no hay productos próximos a vencer. ¡Vuelve pronto!</p>
+    } @else {
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+        @for (producto of urgentes(); track producto.id) {
+          <app-product-card [producto]="producto" />
+        }
+      </div>
+    }
+  </div>
+</section>
+
+@if (vendedores().length) {
+  <section class="py-10 bg-surface-card border-t border-surface-border">
+    <div class="max-w-7xl mx-auto px-4">
+      <div class="flex items-end justify-between mb-6">
+        <h2 class="text-2xl font-bold text-brand-700">Tiendas aliadas</h2>
+        <a routerLink="/tiendas" class="text-sm font-medium text-brand-600 hover:underline">Ver todas →</a>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        @for (vendedor of vendedores(); track vendedor.id) {
+          <a [routerLink]="['/tienda', vendedor.id]" class="card-sf p-4 hover:shadow-lg transition-shadow flex items-center gap-3">
+            <img [src]="vendedor.logoUrl || imagenTienda" alt="" class="w-12 h-12 rounded-full object-cover bg-gray-100" />
+            <div class="min-w-0">
+              <h3 class="font-medium text-gray-900 truncate">{{ vendedor.razonSocial }}</h3>
+              <p class="text-xs text-gray-500 truncate">{{ vendedor.nombreDistrito }}</p>
+            </div>
+          </a>
+        }
+      </div>
+    </div>
+  </section>
+}

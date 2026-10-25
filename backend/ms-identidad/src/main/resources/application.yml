@@ -1,0 +1,40 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: ms-identidad
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/bd_identidad
+    username: savefrut_user
+    password: savefrut_pass
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+jwt:
+  secret: change-this-in-prod-very-long-secret-key-change-this-in-prod-very-long-secret-key
+  access-expiration-minutes: 15
+  refresh-expiration-days: 7

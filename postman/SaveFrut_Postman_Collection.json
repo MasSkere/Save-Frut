@@ -1,0 +1,287 @@
+{
+  "info": {
+    "name": "SaveFrut - Microservicios (API Gateway)",
+    "description": "Colección para probar los microservicios de SaveFrut a través del API Gateway en puerto 8080. Incluye Auth, Catálogo, Órdenes y Pagos.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "idempotency_key",
+      "value": "uuid-savefrut-12345",
+      "type": "string"
+    },
+    {
+      "key": "producto_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "orden_id",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Auth & Usuarios",
+      "item": [
+        {
+          "name": "POST /auth/login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    if (json.token) {",
+                  "        pm.collectionVariables.set('access_token', json.token);",
+                  "        pm.environment.set('access_token', json.token);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cliente@savefrut.com\",\n  \"password\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login contra ms-identidad. Guarda el JWT en variable access_token."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nuevo@savefrut.com\",\n  \"password\": \"123456\",\n  \"nombres\": \"Usuario\",\n  \"apellidos\": \"Prueba\",\n  \"telefono\": \"999999999\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Registro de usuario. Las contraseñas se encriptan con BCrypt en el backend."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /auth/refresh",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Renueva token usando Refresh Token en cookie HttpOnly."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Catálogo e Inventario",
+      "item": [
+        {
+          "name": "GET /productos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/productos",
+              "host": ["{{base_url}}"],
+              "path": ["productos"]
+            },
+            "description": "Lista productos disponibles. Prueba caché Redis en ms-catalogo."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /productos/{id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/productos/{{producto_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["productos", "{{producto_id}}"]
+            },
+            "description": "Busca producto específico."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /productos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Manzana Fuji\",\n  \"descripcion\": \"Manzanas próximas a vencer\",\n  \"precioNormal\": 5.00,\n  \"stock\": 50,\n  \"fechaVencimiento\": \"2026-10-30\",\n  \"categoriaId\": 1,\n  \"medicionId\": 1,\n  \"imagenUrl\": \"https://placehold.co/600x400\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/productos",
+              "host": ["{{base_url}}"],
+              "path": ["productos"]
+            },
+            "description": "Crea producto. Requiere rol Vendedor/Admin."
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /productos/{id}",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Manzana Fuji\",\n  \"descripcion\": \"Actualizado\",\n  \"precioNormal\": 4.50,\n  \"stock\": 40,\n  \"fechaVencimiento\": \"2026-10-30\",\n  \"categoriaId\": 1,\n  \"medicionId\": 1,\n  \"imagenUrl\": \"https://placehold.co/600x400\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/productos/{{producto_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["productos", "{{producto_id}}"]
+            },
+            "description": "Actualiza producto (stock/precio) - Método PUT."
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /productos/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/productos/{{producto_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["productos", "{{producto_id}}"]
+            },
+            "description": "Da de baja producto - Método DELETE."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Órdenes y Pagos",
+      "item": [
+        {
+          "name": "POST /ordenes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "    try {",
+                  "        const json = pm.response.json();",
+                  "        if (json.id) {",
+                  "            pm.collectionVariables.set('orden_id', json.id);",
+                  "        }",
+                  "    } catch(e) {}",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotency_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": 1,\n  \"items\": [\n    { \"productoId\": 1, \"cantidad\": 2 }\n  ],\n  \"direccionEnvio\": \"Av. Los Olivos 123\",\n  \"distritoEnvio\": \"Los Olivos\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ordenes",
+              "host": ["{{base_url}}"],
+              "path": ["ordenes"]
+            },
+            "description": "Crear orden. Usa OpenFeign para verificar stock en ms-catalogo. Protegido con Idempotency-Key y JWT."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

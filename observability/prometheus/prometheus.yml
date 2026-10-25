@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: savefrut-microservicios
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - api-gateway:8080
+          - ms-identidad:8081
+          - ms-catalogo:8082
+          - ms-ordenes:8083
+          - ms-puntos:8084
+
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090

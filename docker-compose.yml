@@ -1,75 +1,440 @@
+# =====================================================================
+#  SaveFrut - Arquitectura de microservicios
+#  Uso:  docker compose up -d --build
+#  Frontend: http://localhost:4200   API Gateway: http://localhost:8080
+# =====================================================================
+
+# Logs en formato JSON para que Filebeat los recolecte -> Logstash -> Elasticsearch -> Kibana
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-spring-env: &spring-env
+  SPRING_PROFILES_ACTIVE: docker
+  JWT_SECRET: ${JWT_SECRET:-change-this-in-prod-very-long-secret-key-change-this-in-prod-very-long-secret-key}
+  TZ: America/Lima
+  JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75 -Duser.timezone=America/Lima"
+
+x-postgres-env: &postgres-env
+  POSTGRES_USER: ${POSTGRES_USER:-savefrut_user}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-savefrut_pass}
+
+x-healthcheck-spring: &healthcheck-spring
+  interval: 10s
+  timeout: 5s
+  retries: 12
+  start_period: 30s
+
+networks:
+  savefrut-net:
+    driver: bridge
+
+volumes:
+  pg_identidad_data:
+  pg_catalogo_data:
+  pg_ordenes_data:
+  pg_puntos_data:
+  redis_data:
+  rabbitmq_data:
+  prometheus_data:
+  grafana_data:
+  elasticsearch_data:
 
 services:
-
-  # ── 1. Base de Datos (PostgreSQL) ───────────────────────────────────────────
-  postgres:
-    container_name: savefrut_db
+  # ───────────────────────────────────────────────────────────────────
+  # 1) BASES DE DATOS (Database per Service)
+  # ───────────────────────────────────────────────────────────────────
+  postgres-identidad:
+    container_name: savefrut-postgres-identidad
     image: postgres:16-alpine
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/db_savefrut
-      POSTGRES_DB: db_savefrut
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASS:-123456}
+      <<: *postgres-env
+      POSTGRES_DB: bd_identidad
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      # Ejecución automática de tu script inicial
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - pg_identidad_data:/var/lib/postgresql/data
+      - ./database/init-identidad.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks: [savefrut-net]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d db_savefrut"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-savefrut_user} -d bd_identidad"]
       interval: 10s
       timeout: 5s
       retries: 5
+    logging: *logging
 
-  # ── 2. Caché (Redis) ──────────────────────────────────────────────────────────
-  redis:
-    container_name: savefrut_redis
-    image: redis:7-alpine
+  postgres-catalogo:
+    container_name: savefrut-postgres-catalogo
+    image: postgres:16-alpine
+    environment:
+      <<: *postgres-env
+      POSTGRES_DB: bd_catalogo
     ports:
-      - "6380:6379"
+      - "5434:5432"
+    volumes:
+      - pg_catalogo_data:/var/lib/postgresql/data
+      - ./database/init-catalogo.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks: [savefrut-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-savefrut_user} -d bd_catalogo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *logging
+
+  postgres-ordenes:
+    container_name: savefrut-postgres-ordenes
+    image: postgres:16-alpine
+    environment:
+      <<: *postgres-env
+      POSTGRES_DB: bd_ordenes
+    ports:
+      - "5435:5432"
+    volumes:
+      - pg_ordenes_data:/var/lib/postgresql/data
+      - ./database/init-ordenes.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks: [savefrut-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-savefrut_user} -d bd_ordenes"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *logging
+
+  postgres-puntos:
+    container_name: savefrut-postgres-puntos
+    image: postgres:16-alpine
+    environment:
+      <<: *postgres-env
+      POSTGRES_DB: bd_puntos
+    ports:
+      - "5436:5432"
+    volumes:
+      - pg_puntos_data:/var/lib/postgresql/data
+      - ./database/init-puntos.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks: [savefrut-net]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-savefrut_user} -d bd_puntos"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *logging
+
+  # ───────────────────────────────────────────────────────────────────
+  # 2) REDIS (caché del catálogo + refresh tokens + idempotencia)
+  # ───────────────────────────────────────────────────────────────────
+  redis:
+    container_name: savefrut-redis
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
     volumes:
       - redis_data:/data
+    networks: [savefrut-net]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    logging: *logging
 
-  # ── 3. Aplicación Backend (Spring Boot) ───────────────────────────────────────
-  api:
-    container_name: savefrut_api
-    build:
-      context: .  # Apunta a la raíz donde movimos el Dockerfile
-      dockerfile: Dockerfile
+  # ───────────────────────────────────────────────────────────────────
+  # 3) RABBITMQ (OrdenPagadaEvent -> Eco-Puntos)
+  # ───────────────────────────────────────────────────────────────────
+  rabbitmq:
+    container_name: savefrut-rabbitmq
+    image: rabbitmq:3.13-management
     environment:
-      SPRING_PROFILE: ${SPRING_PROFILE:-dev}
-      # Conexión apuntando al contenedor de PostgreSQL
-      DB_URL: jdbc:postgresql://postgres:5432/db_savefrut
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASS: ${DB_PASS:-123456}
-      JWT_SECRET: ${JWT_SECRET:-your_secret_key_min_32_chars_long!!!}
-      JWT_ACCESS_EXPIRATION_MINUTES: ${JWT_ACCESS_EXPIRATION_MINUTES:-30}
-      JWT_REFRESH_EXPIRATION_DAYS: ${JWT_REFRESH_EXPIRATION_DAYS:-7}
-      MERCADO_PAGO_ACCESS_TOKEN: ${MERCADO_PAGO_ACCESS_TOKEN:-TEST}
-      MERCADO_PAGO_PUBLIC_KEY: ${MERCADO_PAGO_PUBLIC_KEY:-TEST}
-      REDIS_HOST: ${REDIS_HOST:-redis}
-      REDIS_PORT: ${REDIS_PORT:-6379}
-      SERVER_PORT: ${SERVER_PORT:-8091}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-savefrut}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-savefrut}
     ports:
-      - "${SERVER_PORT:-8091}:${SERVER_PORT:-8091}"
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks: [savefrut-net]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    logging: *logging
+
+  # ───────────────────────────────────────────────────────────────────
+  # 4) MICROSERVICIOS
+  # ───────────────────────────────────────────────────────────────────
+  ms-identidad:
+    container_name: savefrut-ms-identidad
+    build: ./backend/ms-identidad
+    environment:
+      <<: *spring-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-identidad:5432/bd_identidad
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-savefrut_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-savefrut_pass}
+      SPRING_DATA_REDIS_HOST: redis
+      JWT_ACCESS_EXPIRATION_MINUTES: ${JWT_ACCESS_EXPIRATION_MINUTES:-15}
+      JWT_REFRESH_EXPIRATION_DAYS: ${JWT_REFRESH_EXPIRATION_DAYS:-7}
+    ports:
+      - "8081:8081"
     depends_on:
-      postgres:
+      postgres-identidad:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks: [savefrut-net]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${SERVER_PORT:-8091}/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      <<: *healthcheck-spring
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP"]
+    restart: on-failure
+    logging: *logging
 
-# ── 4. Declaración de Volúmenes ─────────────────────────────────────────────────
-volumes:
-  postgres_data:
-  redis_data:
+  ms-catalogo:
+    container_name: savefrut-ms-catalogo
+    build: ./backend/ms-catalogo
+    environment:
+      <<: *spring-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-catalogo:5432/bd_catalogo
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-savefrut_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-savefrut_pass}
+      SPRING_DATA_REDIS_HOST: redis
+      FEIGN_CLIENT_MS_IDENTIDAD_URL: http://ms-identidad:8081
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres-catalogo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ms-identidad:
+        condition: service_healthy
+    networks: [savefrut-net]
+    healthcheck:
+      <<: *healthcheck-spring
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/actuator/health | grep -q UP"]
+    restart: on-failure
+    logging: *logging
+
+  ms-ordenes:
+    container_name: savefrut-ms-ordenes
+    build: ./backend/ms-ordenes
+    environment:
+      <<: *spring-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-ordenes:5432/bd_ordenes
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-savefrut_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-savefrut_pass}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-savefrut}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASS:-savefrut}
+      SPRING_DATA_REDIS_HOST: redis
+      FEIGN_CLIENT_MS_CATALOGO_URL: http://ms-catalogo:8082
+      FEIGN_CLIENT_MS_IDENTIDAD_URL: http://ms-identidad:8081
+      MERCADO_PAGO_ACCESS_TOKEN: ${MERCADO_PAGO_ACCESS_TOKEN:-}
+      MERCADO_PAGO_WEBHOOK_URL: ${MERCADO_PAGO_WEBHOOK_URL:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:4200}
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres-ordenes:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ms-catalogo:
+        condition: service_healthy
+    networks: [savefrut-net]
+    healthcheck:
+      <<: *healthcheck-spring
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/actuator/health | grep -q UP"]
+    restart: on-failure
+    logging: *logging
+
+  ms-puntos:
+    container_name: savefrut-ms-puntos
+    build: ./backend/ms-puntos
+    environment:
+      <<: *spring-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-puntos:5432/bd_puntos
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-savefrut_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-savefrut_pass}
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_USER:-savefrut}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_PASS:-savefrut}
+      FEIGN_CLIENT_MS_IDENTIDAD_URL: http://ms-identidad:8081
+    ports:
+      - "8084:8084"
+    depends_on:
+      postgres-puntos:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      ms-identidad:
+        condition: service_healthy
+    networks: [savefrut-net]
+    healthcheck:
+      <<: *healthcheck-spring
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8084/actuator/health | grep -q UP"]
+    restart: on-failure
+    logging: *logging
+
+  # ───────────────────────────────────────────────────────────────────
+  # 5) API GATEWAY (único punto de entrada)
+  # ───────────────────────────────────────────────────────────────────
+  api-gateway:
+    container_name: savefrut-api-gateway
+    build: ./backend/api-gateway
+    environment:
+      <<: *spring-env
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200}
+    ports:
+      - "8080:8080"
+    depends_on:
+      ms-identidad:
+        condition: service_healthy
+      ms-catalogo:
+        condition: service_healthy
+      ms-ordenes:
+        condition: service_healthy
+      ms-puntos:
+        condition: service_healthy
+    networks: [savefrut-net]
+    healthcheck:
+      <<: *healthcheck-spring
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP"]
+    restart: on-failure
+    logging: *logging
+
+  # ───────────────────────────────────────────────────────────────────
+  # 6) FRONTEND (Angular servido por Nginx)
+  # ───────────────────────────────────────────────────────────────────
+  frontend:
+    container_name: savefrut-frontend
+    build:
+      context: ./frontend/savefrut-app
+      args:
+        GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+    ports:
+      - "4200:80"
+    depends_on:
+      - api-gateway
+    networks: [savefrut-net]
+    restart: on-failure
+    logging: *logging
+
+  # ───────────────────────────────────────────────────────────────────
+  # 7) OBSERVABILIDAD: Prometheus + Grafana (métricas), ELK (logs)
+  # ───────────────────────────────────────────────────────────────────
+  prometheus:
+    container_name: savefrut-prometheus
+    image: prom/prometheus:v2.53.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks: [savefrut-net]
+    restart: on-failure
+
+  grafana:
+    container_name: savefrut-grafana
+    image: grafana/grafana:11.1.0
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/savefrut-microservicios.json
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks: [savefrut-net]
+    restart: on-failure
+
+  elasticsearch:
+    container_name: savefrut-elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks: [savefrut-net]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -qE 'green|yellow'"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+    restart: on-failure
+
+  logstash:
+    container_name: savefrut-logstash
+    image: docker.elastic.co/logstash/logstash:8.14.3
+    environment:
+      LS_JAVA_OPTS: "-Xms256m -Xmx256m"
+      XPACK_MONITORING_ENABLED: "false"
+    volumes:
+      - ./observability/logstash/pipeline:/usr/share/logstash/pipeline:ro
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks: [savefrut-net]
+    restart: on-failure
+
+  # Recolecta los logs de todos los contenedores Docker y los envía a Logstash
+  filebeat:
+    container_name: savefrut-filebeat
+    image: docker.elastic.co/beats/filebeat:8.14.3
+    user: root
+    command: ["filebeat", "-e", "--strict.perms=false"]
+    volumes:
+      - ./observability/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - logstash
+    networks: [savefrut-net]
+    restart: on-failure
+
+  kibana:
+    container_name: savefrut-kibana
+    image: docker.elastic.co/kibana/kibana:8.14.3
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks: [savefrut-net]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:5601/api/status | grep -q available"]
+      interval: 15s
+      timeout: 10s
+      retries: 30
+    restart: on-failure
+
+  # Crea automáticamente la vista de datos "savefrut-logs-*" en Kibana (tarea única)
+  kibana-setup:
+    container_name: savefrut-kibana-setup
+    image: curlimages/curl:8.8.0
+    command: >
+      -s -X POST http://kibana:5601/api/data_views/data_view
+      -H "kbn-xsrf: true" -H "Content-Type: application/json"
+      -d '{"data_view":{"id":"savefrut-logs","title":"savefrut-logs-*","name":"SaveFrut logs","timeFieldName":"@timestamp"},"override":true}'
+    depends_on:
+      kibana:
+        condition: service_healthy
+    networks: [savefrut-net]
+    restart: "no"

@@ -61,3 +61,7 @@ node_modules/
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 .dockerignore
+# ── Herramientas de IA / agentes (configuración local, no forma parte del proyecto) ──
+.agents/
+.claude/
+skills-lock.json

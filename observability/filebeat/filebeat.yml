@@ -1,0 +1,26 @@
+filebeat.inputs:
+  - type: container
+    paths:
+      - /var/lib/docker/containers/*/*.log
+    # Une las líneas de stack traces de Java con el log que las originó
+    multiline:
+      type: pattern
+      pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'
+      negate: true
+      match: after
+
+processors:
+  # Agrega container.name, imagen, etc. a partir del ID del contenedor
+  - add_docker_metadata:
+      host: "unix:///var/run/docker.sock"
+  # Solo se envían los logs de los contenedores de SaveFrut (sin la propia pila ELK)
+  - drop_event:
+      when:
+        not:
+          regexp:
+            container.name: "^savefrut-(ms-|api-gateway|frontend|rabbitmq|redis|postgres)"
+
+output.logstash:
+  hosts: ["logstash:5044"]
+
+logging.level: warning

@@ -1,0 +1,86 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: ms-ordenes
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres-ordenes:5432/bd_ordenes}
+    username: ${SPRING_DATASOURCE_USERNAME:savefrut_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:savefrut_pass}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:rabbitmq}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:savefrut}
+    password: ${SPRING_RABBITMQ_PASSWORD:savefrut}
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:redis}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+
+jwt:
+  secret: ${JWT_SECRET}
+
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:4200}
+
+mercadopago:
+  access-token: ${MERCADO_PAGO_ACCESS_TOKEN:}
+  webhook-url: ${MERCADO_PAGO_WEBHOOK_URL:}
+
+feign:
+  client:
+    ms-catalogo:
+      url: ${FEIGN_CLIENT_MS_CATALOGO_URL:http://ms-catalogo:8082}
+    ms-identidad:
+      url: ${FEIGN_CLIENT_MS_IDENTIDAD_URL:http://ms-identidad:8081}
+
+spring.cloud.openfeign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 5000
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      mercadoPago:
+        registerHealthIndicator: true
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        slowCallDurationThreshold: 4s
+        slowCallRateThreshold: 50
+        waitDurationInOpenState: 20s
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+  timelimiter:
+    instances:
+      mercadoPago:
+        timeoutDuration: 6s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,circuitbreakers
+  endpoint:
+    health:
+      show-details: always
+  health:
+    circuitbreakers:
+      enabled: true
+  metrics:
+    distribution:
+      percentiles-histogram:
+        "[http.server.requests]": true
+    tags:
+      application: ${spring.application.name}

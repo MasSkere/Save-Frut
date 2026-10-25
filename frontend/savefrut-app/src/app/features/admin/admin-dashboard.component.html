@@ -1,0 +1,69 @@
+<h1 class="text-2xl font-bold text-gray-900 mb-6">Dashboard administrativo</h1>
+
+@if (dashboard(); as d) {
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <app-stat-card titulo="Ventas hoy" [valor]="d.ventasHoy | currencyPEN" [detalle]="d.ordenesHoy + ' órdenes creadas hoy'" />
+    <app-stat-card titulo="Ventas del mes" [valor]="d.ventasMes | currencyPEN" />
+    <app-stat-card titulo="Clientes" [valor]="d.clientes" borde="border-blue-500" />
+    <app-stat-card titulo="Vendedores" [valor]="d.vendedoresAprobados" [detalle]="d.vendedoresPendientes + ' pendientes de aprobación'" borde="border-indigo-500" />
+  </div>
+
+  <div class="grid lg:grid-cols-3 gap-6 mt-6">
+    <section class="card-sf p-6 lg:col-span-2">
+      <h2 class="font-semibold mb-4">Ventas confirmadas · últimos 7 días (S/)</h2>
+      <app-bar-chart [datos]="d.ventasSemana" />
+    </section>
+    <section class="card-sf p-6">
+      <h2 class="font-semibold mb-4">Órdenes por estado</h2>
+      <ul class="space-y-3">
+        @for (e of estados(); track e.estado) {
+          <li>
+            <div class="flex justify-between text-sm"><span>{{ e.etiqueta }}</span><span class="font-semibold tabular-nums">{{ e.cantidad }}</span></div>
+            <div class="h-2 bg-gray-100 rounded-full mt-1"><div class="h-full bg-brand-500 rounded-full" [style.width.%]="e.porcentaje"></div></div>
+          </li>
+        }
+      </ul>
+      <a routerLink="/admin/ordenes" class="btn-secondary w-full mt-4">Gestionar órdenes</a>
+    </section>
+  </div>
+
+  <div class="grid lg:grid-cols-3 gap-6 mt-6">
+    <section class="card-sf p-6">
+      <h2 class="font-semibold mb-1">Eco-Puntos · Objetivo 2</h2>
+      <p class="text-xs text-gray-500 mb-4">Meta: 40% de retención de clientes</p>
+      @if (puntos(); as p) {
+        <p class="text-4xl font-bold tabular-nums" [class]="p.tasaRetencion >= 40 ? 'text-brand-600' : 'text-amber-600'">{{ p.tasaRetencion | number: '1.1-1' }}%</p>
+        <p class="text-sm text-gray-600">{{ p.clientesRecurrentes }} de {{ p.clientesConCompras }} clientes volvieron a comprar</p>
+        <p class="mt-4 text-sm">🌱 <strong>{{ p.frutasSalvadasTotal }}</strong> frutas salvadas en total</p>
+      } @else {
+        <p class="text-sm text-gray-500">Sin datos de ms-puntos.</p>
+      }
+    </section>
+
+    <section class="card-sf p-6">
+      <h2 class="font-semibold mb-4">Productos más vendidos</h2>
+      <ol class="space-y-2 text-sm">
+        @for (p of d.topProductos; track p.id; let i = $index) {
+          <li class="flex justify-between gap-2"><span class="truncate">{{ i + 1 }}. {{ p.nombre }}</span><span class="tabular-nums text-gray-600 whitespace-nowrap">{{ p.cantidadVendida }} u · {{ p.revenue | currencyPEN }}</span></li>
+        } @empty {
+          <li class="text-gray-500">Aún no hay ventas confirmadas.</li>
+        }
+      </ol>
+    </section>
+
+    <section class="card-sf p-6">
+      <h2 class="font-semibold mb-4">Inventario de la plataforma</h2>
+      @if (inventario(); as inv) {
+        <dl class="space-y-2 text-sm">
+          <div class="flex justify-between"><dt>Productos activos</dt><dd class="font-semibold">{{ inv.productosActivos }}</dd></div>
+          <div class="flex justify-between"><dt>Stock bajo</dt><dd class="font-semibold text-amber-600">{{ inv.productosStockBajo }}</dd></div>
+          <div class="flex justify-between"><dt>Vencen en ≤ 2 días</dt><dd class="font-semibold text-orange-600">{{ inv.productosPorVencer }}</dd></div>
+          <div class="flex justify-between"><dt>Vencidos (merma)</dt><dd class="font-semibold text-red-600">{{ inv.productosVencidos }}</dd></div>
+        </dl>
+      }
+      <p class="text-xs text-gray-500 mt-4">{{ alertas().length }} alertas activas</p>
+    </section>
+  </div>
+} @else {
+  <div class="flex justify-center py-20"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div></div>
+}

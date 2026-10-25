@@ -1,0 +1,48 @@
+<div class="max-w-7xl mx-auto px-4 py-8">
+  <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-brand-700">Catálogo</h1>
+      <p class="text-sm text-gray-500">
+        {{ filtrados().length }} productos
+        @if (termino()) { para "<strong>{{ termino() }}</strong>" }
+      </p>
+    </div>
+    <label class="text-sm text-gray-600 flex items-center gap-2">
+      Ordenar por
+      <select class="input-sf !w-auto" [ngModel]="orden()" (ngModelChange)="orden.set($event)">
+        <option value="urgencia">Vence primero</option>
+        <option value="descuento">Mayor descuento</option>
+        <option value="precio">Menor precio</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="flex gap-2 overflow-x-auto pb-3 mb-4">
+    <button type="button" (click)="seleccionarCategoria(null)"
+            class="px-4 py-1.5 rounded-full text-sm border whitespace-nowrap"
+            [class]="categoriaId() === null ? 'bg-brand-500 text-white border-brand-500' : 'bg-white border-surface-border text-gray-700'">
+      Todas
+    </button>
+    @for (c of categorias(); track c.id) {
+      <button type="button" (click)="seleccionarCategoria(c.id)"
+              class="px-4 py-1.5 rounded-full text-sm border whitespace-nowrap"
+              [class]="categoriaId() === c.id ? 'bg-brand-500 text-white border-brand-500' : 'bg-white border-surface-border text-gray-700'">
+        {{ c.nombre }}
+      </button>
+    }
+  </div>
+
+  @if (loading()) {
+    <div class="flex justify-center py-20"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div></div>
+  } @else if (error()) {
+    <div class="bg-red-50 border border-red-200 rounded-card p-4 text-center text-red-600">{{ error() }}</div>
+  } @else if (filtrados().length === 0) {
+    <p class="text-center text-gray-500 py-16">No encontramos productos con esos filtros.</p>
+  } @else {
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+      @for (producto of filtrados(); track producto.id) {
+        <app-product-card [producto]="producto" />
+      }
+    </div>
+  }
+</div>

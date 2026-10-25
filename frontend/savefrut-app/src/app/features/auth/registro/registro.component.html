@@ -1,0 +1,101 @@
+<main class="min-h-screen bg-brand-50 flex items-center justify-center p-4">
+  <div class="w-full max-w-lg bg-surface-card rounded-card shadow-soft p-8">
+    <div class="text-center mb-6">
+      <a routerLink="/" class="inline-flex items-center justify-center w-14 h-14 bg-brand-500 rounded-full mb-3 text-2xl" aria-label="Ir al inicio">🍊</a>
+      <h1 class="text-2xl font-bold text-brand-700">Crea tu cuenta</h1>
+    </div>
+
+    @if (exito()) {
+      <div class="bg-brand-50 border border-brand-200 text-brand-700 rounded-button p-4 text-center">
+        <p class="font-medium">{{ exito() }}</p>
+        <a routerLink="/login" class="inline-block mt-3 text-brand-600 underline">Ir a ingresar</a>
+      </div>
+    } @else {
+      <form (ngSubmit)="onSubmit()" #f="ngForm" class="space-y-4">
+        <fieldset class="grid grid-cols-2 gap-2" aria-label="Tipo de cuenta">
+          <label class="cursor-pointer">
+            <input type="radio" name="rol" value="CLIENTE" [(ngModel)]="form.rol" class="peer sr-only" />
+            <span class="block text-center py-3 rounded-button border border-surface-border peer-checked:border-brand-500 peer-checked:bg-brand-50 peer-checked:text-brand-700 font-medium">🛒 Quiero comprar</span>
+          </label>
+          <label class="cursor-pointer">
+            <input type="radio" name="rol" value="VENDEDOR" [(ngModel)]="form.rol" class="peer sr-only" />
+            <span class="block text-center py-3 rounded-button border border-surface-border peer-checked:border-brand-500 peer-checked:bg-brand-50 peer-checked:text-brand-700 font-medium">🏪 Quiero vender</span>
+          </label>
+        </fieldset>
+
+        @if (error()) {
+          <div class="bg-red-50 border border-red-200 text-red-600 text-sm rounded-button p-3" role="alert">{{ error() }}</div>
+        }
+
+        @if (form.rol === 'CLIENTE') {
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="nombres" class="block text-sm font-medium text-gray-700 mb-1">Nombres</label>
+              <input id="nombres" name="nombres" required [(ngModel)]="form.nombres" class="input-sf" />
+            </div>
+            <div>
+              <label for="apellidos" class="block text-sm font-medium text-gray-700 mb-1">Apellidos</label>
+              <input id="apellidos" name="apellidos" required [(ngModel)]="form.apellidos" class="input-sf" />
+            </div>
+          </div>
+          <div>
+            <label for="telefono" class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+            <input id="telefono" name="telefono" [(ngModel)]="form.telefono" class="input-sf" />
+          </div>
+        } @else {
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label for="ruc" class="block text-sm font-medium text-gray-700 mb-1">RUC</label>
+              <input id="ruc" name="ruc" required pattern="[0-9]{11}" maxlength="11" [(ngModel)]="form.ruc" class="input-sf" />
+            </div>
+            <div class="col-span-2">
+              <label for="razon" class="block text-sm font-medium text-gray-700 mb-1">Razón social / nombre de la tienda</label>
+              <input id="razon" name="razonSocial" required [(ngModel)]="form.razonSocial" class="input-sf" />
+            </div>
+          </div>
+        }
+
+        <div>
+          <label for="direccion" class="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+          <input id="direccion" name="direccion" [(ngModel)]="form.direccion" class="input-sf" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="provincia" class="block text-sm font-medium text-gray-700 mb-1">Provincia</label>
+            <select id="provincia" name="provincia" [(ngModel)]="provinciaId" (ngModelChange)="cambiarProvincia()" class="input-sf">
+              <option [ngValue]="null">Selecciona…</option>
+              @for (p of provincias(); track p.id) { <option [ngValue]="p.id">{{ p.nombre }}</option> }
+            </select>
+          </div>
+          <div>
+            <label for="distrito" class="block text-sm font-medium text-gray-700 mb-1">Distrito</label>
+            <select id="distrito" name="distrito" [(ngModel)]="form.distritoId" class="input-sf" [disabled]="!distritos().length">
+              <option [ngValue]="null">Selecciona…</option>
+              @for (d of distritos(); track d.id) { <option [ngValue]="d.id">{{ d.nombre }}</option> }
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Correo electrónico</label>
+            <input id="email" name="email" type="email" required email [(ngModel)]="form.email" autocomplete="email" class="input-sf" />
+          </div>
+          <div>
+            <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+            <input id="password" name="password" type="password" required minlength="6" [(ngModel)]="form.password" autocomplete="new-password" class="input-sf" />
+          </div>
+        </div>
+        <p class="text-xs text-gray-500">La contraseña se almacena cifrada con BCrypt. Mínimo 6 caracteres.</p>
+
+        <button type="submit" [disabled]="enviando() || f.invalid"
+                class="w-full bg-brand-500 hover:bg-brand-600 text-white font-semibold py-3 rounded-button transition-colors disabled:opacity-50">
+          {{ enviando() ? 'Creando cuenta…' : 'Crear cuenta' }}
+        </button>
+      </form>
+      <p class="mt-5 text-center text-sm text-gray-600">
+        ¿Ya tienes cuenta? <a routerLink="/login" class="text-brand-500 font-medium">Ingresa</a>
+      </p>
+    }
+  </div>
+</main>

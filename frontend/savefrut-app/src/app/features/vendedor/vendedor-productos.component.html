@@ -1,0 +1,98 @@
+<div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">Mis productos</h1>
+    <p class="text-sm text-gray-500">El descuento se calcula automáticamente según la fecha de vencimiento (30% a 7 días, 60% a 2 días).</p>
+  </div>
+  <button type="button" class="btn-primary" (click)="nuevo()">+ Nuevo producto</button>
+</div>
+
+@if (error()) {
+  <div class="mb-4 bg-red-50 border border-red-200 rounded-card p-3 text-sm text-red-700" role="alert">{{ error() }}</div>
+}
+
+@if (formAbierto()) {
+  <form class="card-sf p-6 mb-6 grid md:grid-cols-2 gap-4" (ngSubmit)="guardar()" #f="ngForm">
+    <h2 class="md:col-span-2 font-semibold">{{ editandoId() ? 'Editar producto #' + editandoId() : 'Nuevo producto' }}</h2>
+    <div>
+      <label for="nombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+      <input id="nombre" name="nombre" required maxlength="100" [(ngModel)]="form.nombre" class="input-sf" />
+    </div>
+    <div>
+      <label for="imagen" class="block text-sm font-medium text-gray-700 mb-1">URL de imagen</label>
+      <input id="imagen" name="imagenUrl" type="url" [(ngModel)]="form.imagenUrl" class="input-sf" placeholder="https://…" />
+    </div>
+    <div class="md:col-span-2">
+      <label for="descripcion" class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+      <textarea id="descripcion" name="descripcion" rows="2" maxlength="500" [(ngModel)]="form.descripcion" class="input-sf"></textarea>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label for="precio" class="block text-sm font-medium text-gray-700 mb-1">Precio normal (S/)</label>
+        <input id="precio" name="precioNormal" type="number" min="0.1" step="0.1" required [(ngModel)]="form.precioNormal" class="input-sf" />
+      </div>
+      <div>
+        <label for="stock" class="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+        <input id="stock" name="stock" type="number" min="0" required [(ngModel)]="form.stock" class="input-sf" />
+      </div>
+    </div>
+    <div>
+      <label for="vence" class="block text-sm font-medium text-gray-700 mb-1">Fecha de vencimiento</label>
+      <input id="vence" name="fechaVencimiento" type="date" required [(ngModel)]="form.fechaVencimiento" class="input-sf" />
+    </div>
+    <div>
+      <label for="categoria" class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+      <select id="categoria" name="categoriaId" required [(ngModel)]="form.categoriaId" class="input-sf">
+        @for (c of categorias(); track c.id) { <option [ngValue]="c.id">{{ c.nombre }}</option> }
+      </select>
+    </div>
+    <div>
+      <label for="medida" class="block text-sm font-medium text-gray-700 mb-1">Unidad de medida</label>
+      <select id="medida" name="medicionId" required [(ngModel)]="form.medicionId" class="input-sf">
+        @for (m of medidas(); track m.id) { <option [ngValue]="m.id">{{ m.nombre }}</option> }
+      </select>
+    </div>
+    <div class="md:col-span-2 flex gap-3 justify-end">
+      <button type="button" class="btn-secondary" (click)="formAbierto.set(false)">Cancelar</button>
+      <button type="submit" class="btn-primary" [disabled]="guardando() || f.invalid">{{ guardando() ? 'Guardando…' : 'Guardar' }}</button>
+    </div>
+  </form>
+}
+
+<div class="card-sf overflow-x-auto">
+  <table class="tabla-sf">
+    <thead>
+      <tr><th>Producto</th><th>Categoría</th><th class="text-right">Precio</th><th class="text-right">Con dto.</th><th>Vence</th><th>Stock</th><th>Estado</th><th></th></tr>
+    </thead>
+    <tbody>
+      @for (p of productos(); track p.id) {
+        <tr [class.opacity-60]="!p.activo">
+          <td>
+            <div class="flex items-center gap-2">
+              <img [src]="p.imagenUrl" alt="" class="w-10 h-10 rounded object-cover bg-gray-100" />
+              <span class="font-medium">{{ p.nombre }}</span>
+            </div>
+          </td>
+          <td>{{ p.nombreCategoria }}</td>
+          <td class="text-right tabular-nums">{{ p.precioNormal | currencyPEN }}</td>
+          <td class="text-right tabular-nums text-brand-600 font-semibold">{{ p.precioDescuento | currencyPEN }}</td>
+          <td class="whitespace-nowrap">{{ p.fechaVencimiento | date: 'dd/MM/yyyy' }}</td>
+          <td>
+            <label class="sr-only" [for]="'stock-' + p.id">Stock de {{ p.nombre }}</label>
+            <input [id]="'stock-' + p.id" type="number" min="0" [value]="p.stock" (change)="ajustarStock(p, $any($event.target).value)"
+                   class="input-sf !w-20 tabular-nums" [class.!border-amber-400]="p.stock < 10" />
+          </td>
+          <td>
+            <button type="button" (click)="cambiarActivo(p)"
+                    class="text-xs font-semibold px-2 py-1 rounded-full"
+                    [class]="p.activo ? 'bg-brand-100 text-brand-700' : 'bg-gray-200 text-gray-600'">
+              {{ p.activo ? 'Publicado' : 'Pausado' }}
+            </button>
+          </td>
+          <td><button type="button" class="text-brand-600 text-sm hover:underline" (click)="editar(p)">Editar</button></td>
+        </tr>
+      } @empty {
+        <tr><td colspan="8" class="text-center text-gray-500 py-8">{{ loading() ? 'Cargando…' : 'Aún no tienes productos.' }}</td></tr>
+      }
+    </tbody>
+  </table>
+</div>
